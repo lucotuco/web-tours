@@ -1377,6 +1377,12 @@ section {
   opacity: 1;
   transform: translateY(0);
 }
+.calendario-admin-grande .dia-pendiente {
+  background-color: #fffde7 !important;
+  color: #f57c00 !important;
+  font-weight: bold;
+  border: 1px solid #fff59d !important;
+}
 
 /* Loading spinner */
 .spinner {

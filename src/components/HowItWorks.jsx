@@ -6,7 +6,7 @@ export default function HowItWorks() {
   const { t } = useLanguage();
 
   return (
-    <section className="how-it-works animate-on-scroll visible" id="como-funciona">
+    <section className="how-it-works animate-on-scroll" id="como-funciona">
       <div className="section-header">
         <div className="section-badge">
           <i className="fas fa-lightbulb"></i> 

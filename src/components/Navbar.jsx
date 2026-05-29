@@ -8,6 +8,9 @@ export default function Navbar() {
   // Traemos el idioma actual (lang), la función para cambiarlo (changeLang) y el traductor (t)
   const { lang, changeLang, t } = useLanguage();
 
+  const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
+const toggleMobileMenu = () => setMobileMenuOpen(!mobileMenuOpen);
+
   useEffect(() => {
     const handleScroll = () => {
       setScrolled(window.scrollY > 50);
@@ -48,10 +51,25 @@ export default function Navbar() {
             </div>
           </li>
         </ul>
-        <button className="mobile-menu-btn">
-          <i className="fas fa-bars"></i>
-        </button>
+        <button className="mobile-menu-btn" onClick={toggleMobileMenu}>
+  <i className="fas fa-bars"></i>
+</button>
       </div>
+      <div className={`mobile-nav-overlay ${mobileMenuOpen ? 'open' : ''}`} onClick={toggleMobileMenu}></div>
+<div className={`mobile-nav ${mobileMenuOpen ? 'open' : ''}`}>
+  <a href="#inicio" onClick={toggleMobileMenu}>{t('Inicio', 'Home')}</a>
+  <a href="#nosotros" onClick={toggleMobileMenu}>{t('Nosotros', 'About Us')}</a>
+  <a href="#tours" onClick={toggleMobileMenu}>{t('Tours', 'Tours')}</a>
+  <a href="#como-funciona" onClick={toggleMobileMenu}>{t('Cómo Funciona', 'How It Works')}</a>
+  <a href="#testimonios" onClick={toggleMobileMenu}>{t('Testimonios', 'Testimonials')}</a>
+  <a href="#contacto" onClick={toggleMobileMenu}>{t('Contacto', 'Contact')}</a>
+  <div style={{ marginTop: '1.5rem' }}>
+    <div className="lang-toggle">
+      <button className={`lang-btn ${lang === 'es' ? 'active' : ''}`} onClick={() => changeLang('es')}>ES</button>
+      <button className={`lang-btn ${lang === 'en' ? 'active' : ''}`} onClick={() => changeLang('en')}>EN</button>
+    </div>
+  </div>
+</div>
     </nav>
   );
 }

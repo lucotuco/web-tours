@@ -6,7 +6,7 @@ export default function About() {
   const { t } = useLanguage();
 
   return (
-    <section className="about animate-on-scroll visible" id="nosotros">
+    <section className="about animate-on-scroll" id="nosotros">
       <div className="section-header">
         <div className="section-badge">
           <i className="fas fa-info-circle"></i> 

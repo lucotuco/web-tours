@@ -1,18 +1,29 @@
 "use client";
+import { useState } from 'react';
 import React from 'react';
 import { useLanguage } from '../context/LanguageContext';
 
 export default function Contact() {
   const { t } = useLanguage();
+const [toast, setToast] = useState({ show: false, type: '', title: '', msg: '' });
+
+const showToast = (type, title, msg) => {
+  setToast({ show: true, type, title, msg });
+  setTimeout(() => setToast({ show: false, type: '', title: '', msg: '' }), 4000);
+};
 
   const handleContactForm = (e) => {
-    e.preventDefault();
-    alert(t("¡Mensaje enviado con éxito!", "Message sent successfully!"));
-    e.target.reset();
-  };
+  e.preventDefault();
+  showToast(
+    'success', 
+    t('¡Mensaje Enviado!', 'Message Sent!'), 
+    t('Te responderemos pronto.', 'We will respond soon.')
+  );
+  e.target.reset();
+};
 
   return (
-    <section className="contact animate-on-scroll visible" id="contacto">
+    <section className="contact animate-on-scroll" id="contacto">
       <div className="section-header">
         <div className="section-badge">
           <i className="fas fa-headset"></i> 
@@ -104,6 +115,15 @@ export default function Contact() {
           </form>
         </div>
       </div>
+      <div className={`toast ${toast.show ? 'show' : ''}`}>
+  <div className={`toast-icon ${toast.type}`}>
+    {toast.type === 'success' ? <i className="fas fa-check"></i> : <i className="fas fa-exclamation"></i>}
+  </div>
+  <div className="toast-text">
+    <strong>{toast.title}</strong>
+    <span>{toast.msg}</span>
+  </div>
+</div>
     </section>
   );
 }
