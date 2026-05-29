@@ -11,7 +11,6 @@ export default function ToursSection() {
 
   useEffect(() => {
     async function fetchTours() {
-      // Traemos los tours directamente desde Supabase
       const { data } = await supabase.from('tours').select('*').order('created_at', { ascending: false });
       setTours(data || []);
       setLoading(false);
@@ -21,24 +20,29 @@ export default function ToursSection() {
 
   if (loading) {
     return (
-      <section id="tours" style={{ padding: '4rem 2rem', background: '#fcfbfa', textAlign: 'center' }}>
+      <section className="tours" id="tours" style={{ textAlign: 'center', padding: '6rem 2rem' }}>
         <p>{t('Cargando tours...', 'Loading tours...')}</p>
       </section>
     );
   }
 
   return (
-    <section id="tours" style={{ padding: '4rem 2rem', background: '#fcfbfa' }}>
-      <div style={{ maxWidth: '1200px', margin: '0 auto' }}>
-        <h2 style={{ textAlign: 'center', fontSize: '2.5rem', marginBottom: '3rem', color: '#1a3a5c' }}>
-          {t('Nuestros Tours', 'Our Tours')}
-        </h2>
+    <section className="tours" id="tours">
+      <div className="container">
+        {/* ENCABEZADO DE SECCIÓN LINDO */}
+        <div className="section-header">
+          <div className="section-badge">
+            <i className="fas fa-map-marker-alt"></i>
+            <span>{t('Explorá', 'Explore')}</span>
+          </div>
+          <h2>{t('Nuestros Tours', 'Our Tours')}</h2>
+          <p>{t('Descubrí Buenos Aires con nuestros recorridos más populares y experiencias únicas.', 'Discover Buenos Aires with our most popular tours and unique experiences.')}</p>
+        </div>
         
         {tours.length === 0 ? (
           <p style={{ textAlign: 'center' }}>{t('No hay tours disponibles.', 'No tours available at the moment.')}</p>
         ) : (
-          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(300px, 1fr))', gap: '2rem' }}>
-            {/* Filtramos para mostrar solo los que el admin marcó como "Activos" */}
+          <div className="tours-grid">
             {tours.filter(tour => tour.activo).map(tour => (
               <TourCard key={tour.id} tour={tour} />
             ))}

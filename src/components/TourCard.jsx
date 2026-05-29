@@ -1,40 +1,61 @@
 "use client";
-import { useState } from 'react';
-import BookingModal from './BookingModal';
+import React, { useState } from 'react';
 import { useLanguage } from '../context/LanguageContext';
+import BookingModal from './BookingModal';
 
 export default function TourCard({ tour }) {
+  const { lang, t } = useLanguage();
   const [showModal, setShowModal] = useState(false);
-  const { t } = useLanguage();
+
+  // Elegimos el texto según el idioma
+  const titulo = lang === 'es' ? tour.titulo_es : tour.titulo_en;
+  const descripcion = lang === 'es' ? tour.descripcion_es : tour.descripcion_en;
+  const categoria = lang === 'es' ? tour.categoria_es : tour.categoria_en;
+
+  // Amenidades (Las hardcodeamos por ahora para mantener el diseño original)
+  const amenities = lang === 'es' 
+    ? ["Transporte", "Guía bilingüe"] 
+    : ["Transport", "Bilingual Guide"];
 
   return (
     <>
-      <div className="tour-card" style={{ border: '1px solid #ddd', borderRadius: '8px', overflow: 'hidden', background: 'white' }}>
-        <img 
-          src={tour.imagen_url || '/placeholder.jpg'} 
-          alt={tour.titulo_es} 
-          style={{ width: '100%', height: '200px', objectFit: 'cover' }}
-        />
-        <div style={{ padding: '20px' }}>
-          <span style={{ fontSize: '0.8rem', color: '#c8a45c', fontWeight: 'bold', textTransform: 'uppercase' }}>
-            {t(tour.categoria_es, tour.categoria_en)}
-          </span>
-          <h3 style={{ margin: '10px 0', color: '#1a3a5c' }}>{t(tour.titulo_es, tour.titulo_en)}</h3>
-          <p style={{ color: '#666', fontSize: '0.9rem', marginBottom: '15px' }}>
-            {t(tour.descripcion_es, tour.descripcion_en)}
-          </p>
+      <div className="tour-card">
+        {/* IMAGEN Y BADGES */}
+        <div className="tour-card-image">
+          <img 
+            src={tour.imagen_url || 'https://via.placeholder.com/400x300?text=Tour+PremierSur'} 
+            alt={titulo} 
+          />
+          <div className="tour-card-badge">{categoria}</div>
+          <div className="tour-card-duration">
+            <i className="far fa-clock"></i> {tour.duracion}
+          </div>
+        </div>
+        
+        {/* CUERPO DE LA TARJETA */}
+        <div className="tour-card-body">
+          <h3 className="tour-card-title">{titulo}</h3>
+          <p className="tour-card-desc">{descripcion}</p>
           
-          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '15px', fontWeight: 'bold' }}>
-            <span>USD {tour.precio}</span>
-            <span style={{ color: '#888' }}>⏱ {tour.duracion}</span>
+          <div className="tour-card-includes">
+            {amenities.map((amenity, index) => (
+              <span key={index} className="tour-tag">
+                <i className="fas fa-check-circle" style={{color: '#c8a45c', marginRight: '4px'}}></i> 
+                {amenity}
+              </span>
+            ))}
           </div>
           
-          <button 
-            onClick={() => setShowModal(true)} 
-            style={{ width: '100%', padding: '12px', background: '#1a3a5c', color: 'white', border: 'none', borderRadius: '4px', cursor: 'pointer', fontWeight: 'bold' }}
-          >
-            {t('Reservar Ahora', 'Book Now')}
-          </button>
+          {/* PRECIO Y BOTÓN */}
+          <div className="tour-card-footer">
+            <div className="tour-price">
+              <span className="tour-price-label">{t('Desde', 'From')}</span>
+              <span className="tour-price-amount">USD {tour.precio}</span>
+            </div>
+            <button className="btn-book" onClick={() => setShowModal(true)}>
+              {t('Reservar', 'Book')}
+            </button>
+          </div>
         </div>
       </div>
 
