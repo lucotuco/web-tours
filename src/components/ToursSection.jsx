@@ -11,7 +11,7 @@ export default function ToursSection() {
 
   useEffect(() => {
     async function fetchTours() {
-      const { data } = await supabase.from('tours').select('*').order('created_at', { ascending: false });
+      const { data } = await supabase.from('tours').select('*').order('orden', { ascending: true });
       setTours(data || []);
       setLoading(false);
     }
@@ -29,7 +29,6 @@ export default function ToursSection() {
   return (
     <section className="tours" id="tours">
       <div className="container">
-        {/* ENCABEZADO DE SECCIÓN LINDO */}
         <div className="section-header">
           <div className="section-badge">
             <i className="fas fa-map-marker-alt"></i>
