@@ -21,7 +21,8 @@ export default function LoginPage() {
     if (error) {
       setError("Datos incorrectos. Intentalo de nuevo.");
     } else {
-      router.push('/admin'); // Si sale bien, lo mandamos al admin
+      router.push('/admin');
+      router.refresh();
     }
   };
 

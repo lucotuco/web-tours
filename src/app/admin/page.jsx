@@ -2,7 +2,10 @@
 
 import { useState, useEffect } from 'react';
 import { supabase } from '@/lib/supabase';
+import { useRouter } from 'next/navigation';
 import { DragDropContext, Droppable, Draggable } from '@hello-pangea/dnd';
+import DatePicker from "react-datepicker";
+import "react-datepicker/dist/react-datepicker.css";
 
 export default function AdminPage() {
   const [tours, setTours] = useState([]);
@@ -12,10 +15,12 @@ export default function AdminPage() {
   const [loading, setLoading] = useState(true);
   const [editingId, setEditingId] = useState(null);
   const [toast, setToast] = useState('');
+  const router = useRouter();
 
-  // Estado para bloquear nueva fecha
+  // Estados para bloquear fecha nueva
   const [nuevaFecha, setNuevaFecha] = useState('');
   const [motivoFecha, setMotivoFecha] = useState('');
+  const [fechaCalendarioGrande, setFechaCalendarioGrande] = useState(new Date());
 
   // Estado del formulario de tours
   const [formData, setFormData] = useState({
@@ -24,10 +29,9 @@ export default function AdminPage() {
     duracion: '', imagen_url: '',
     descripcion_es: '', descripcion_en: '',
     categoria_es: 'Popular', categoria_en: 'Popular',
-    activo: true // <-- Restaurada la opción de activo
+    activo: true 
   });
 
-  // Cargar toda la información del Dashboard
   const fetchDashboardData = async () => {
     setLoading(true);
     
@@ -56,6 +60,13 @@ export default function AdminPage() {
   useEffect(() => {
     fetchDashboardData();
   }, []);
+
+  // Cerrar Sesión Segura
+  const handleLogout = async () => {
+    await supabase.auth.signOut();
+    router.push('/admin/login');
+    router.refresh();
+  };
 
   /* ================= MÉTODOS DE TOURS ================= */
   const handleInputChange = (e) => {
@@ -95,7 +106,7 @@ export default function AdminPage() {
       duracion: tour.duracion || '', imagen_url: tour.imagen_url || '',
       descripcion_es: tour.descripcion_es || '', descripcion_en: tour.descripcion_en || '',
       categoria_es: tour.categoria_es || 'Popular', categoria_en: tour.categoria_en || 'Popular',
-      activo: tour.activo !== false // Si es null, lo toma como true
+      activo: tour.activo !== false 
     });
     setEditingId(tour.id);
     window.scrollTo({ top: 0, behavior: 'smooth' });
@@ -130,7 +141,7 @@ export default function AdminPage() {
     items.splice(result.destination.index, 0, reorderedItem);
 
     const updatedItems = items.map((item, index) => ({ ...item, orden: index }));
-    setTours(updatedItems); // Actualiza la UI al instante
+    setTours(updatedItems); 
 
     try {
       const promises = updatedItems.map(tour =>
@@ -143,7 +154,7 @@ export default function AdminPage() {
     }
   };
 
-  /* ================= MÉTODOS DE RESERVAS Y CALENDARIO ================= */
+  /* ================= MÉTODOS DEL CALENDARIO ================= */
   const handleActualizarEstadoReserva = async (id, nuevoEstado) => {
     try {
       await supabase.from('reservas').update({ estado: nuevoEstado }).eq('id', id);
@@ -178,6 +189,37 @@ export default function AdminPage() {
     }
   };
 
+  const renderizarEstiloDia = (date) => {
+    const year = date.getFullYear();
+    const month = String(date.getMonth() + 1).padStart(2, '0');
+    const day = String(date.getDate()).padStart(2, '0');
+    const fechaStr = `${year}-${month}-${day}`;
+
+    if (fechasBloqueadas.some(fb => fb.fecha === fechaStr)) return "dia-bloqueado-admin";
+    
+    const reservasDelDia = reservas.filter(r => r.fecha_tour === fechaStr);
+    if (reservasDelDia.length === 0) return "";
+    
+    const tienePendiente = reservasDelDia.some(r => r.estado?.includes('pendiente'));
+    if (reservasDelDia.length >= 3) return "dia-lleno";
+    if (tienePendiente) return "dia-pendiente";
+    return "dia-con-reserva";
+  };
+
+  const obtenerInfoDiaSeleccionado = () => {
+    if (!fechaCalendarioGrande) return null;
+    const year = fechaCalendarioGrande.getFullYear();
+    const month = String(fechaCalendarioGrande.getMonth() + 1).padStart(2, '0');
+    const day = String(fechaCalendarioGrande.getDate()).padStart(2, '0');
+    const fechaStr = `${year}-${month}-${day}`;
+
+    return { 
+      fechaStr, 
+      reservasDelDia: reservas.filter(r => r.fecha_tour === fechaStr), 
+      bloqueoDelDia: fechasBloqueadas.find(f => f.fecha === fechaStr) 
+    };
+  };
+
   const showToast = (message) => {
     setToast(message);
     setTimeout(() => setToast(''), 3000);
@@ -195,16 +237,21 @@ export default function AdminPage() {
     toast: { position: 'fixed', bottom: '20px', right: '20px', background: '#2ecc71', color: 'white', padding: '15px 25px', borderRadius: '8px', opacity: toast ? 1 : 0, transition: '0.3s', zIndex: 1000 }
   };
 
+  const infoDia = obtenerInfoDiaSeleccionado();
   if (loading) return <div style={{ textAlign: 'center', padding: '50px' }}>Cargando panel de administración...</div>;
 
   return (
     <div style={styles.container}>
-      <h1 style={{ color: '#1a3a5c', marginBottom: '30px' }}>Panel de Administración</h1>
+      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '30px' }}>
+        <h1 style={{ color: '#1a3a5c', margin: 0, fontFamily: 'Playfair Display, serif' }}>Panel de Administración</h1>
+        <button onClick={handleLogout} style={{ ...styles.btnDanger, background: '#7f8c8d', padding: '10px 15px', fontWeight: 'bold' }}>
+          Cerrar Sesión 🚪
+        </button>
+      </div>
 
       <div style={styles.grid}>
         {/* COLUMNA IZQUIERDA: GESTIÓN DE TOURS */}
         <div>
-          {/* Formulario de Tours */}
           <div style={styles.card}>
             <h2>{editingId ? 'Editar Tour' : 'Crear Nuevo Tour'}</h2>
             <form onSubmit={handleSubmitTour}>
@@ -235,7 +282,6 @@ export default function AdminPage() {
             </form>
           </div>
 
-          {/* Lista de Tours (Drag and Drop) */}
           <h2 style={{ marginTop: '30px', marginBottom: '15px' }}>Tours (Arrastrar para ordenar)</h2>
           <DragDropContext onDragEnd={handleDragEnd}>
             <Droppable droppableId="tours-list">
@@ -250,7 +296,7 @@ export default function AdminPage() {
                           style={{
                             ...provided.draggableProps.style,
                             ...styles.listItem,
-                            opacity: tour.activo ? 1 : 0.6, // Visualmente atenuado si está inactivo
+                            opacity: tour.activo ? 1 : 0.6,
                             boxShadow: snapshot.isDragging ? '0 5px 15px rgba(0,0,0,0.1)' : 'none'
                           }}
                         >
@@ -280,50 +326,65 @@ export default function AdminPage() {
 
         {/* COLUMNA DERECHA: RESERVAS Y CALENDARIO */}
         <div>
-          {/* Próximas Reservas */}
           <div style={{ ...styles.card, marginBottom: '30px' }}>
             <h2>Próximas Reservas</h2>
             {reservas.length === 0 ? <p>No hay reservas futuras.</p> : (
-              <ul style={{ padding: 0 }}>
-                {reservas.map(res => (
-                  <li key={res.id} style={styles.listItem}>
-                    <div>
-                      <strong>{res.fecha_tour} - {res.horario}</strong><br/>
-                      <span style={{ fontSize: '0.9rem' }}>{res.tours?.titulo_es} ({res.pasajeros} pax)</span><br/>
-                      <span style={{ fontSize: '0.8rem', color: '#666' }}>{res.nombre_cliente} | {res.estado}</span>
-                    </div>
-                    <select 
-                      value={res.estado} 
-                      onChange={(e) => handleActualizarEstadoReserva(res.id, e.target.value)}
-                      style={{ padding: '5px', borderRadius: '4px' }}
-                    >
-                      <option value="pendiente">Pendiente</option>
-                      <option value="confirmado">Confirmado</option>
-                      <option value="cancelado">Cancelado</option>
-                    </select>
-                  </li>
-                ))}
+              <ul style={{ padding: 0, maxHeight: '300px', overflowY: 'auto' }}>
+                {reservas.map(res => {
+                  const horarioTexto = res.horario === 'morning' ? 'Mañana (9:00)' : res.horario === 'afternoon' ? 'Tarde (14:00)' : 'Noche (19:00)';
+                  return (
+                    <li key={res.id} style={styles.listItem}>
+                      <div>
+                        <strong>{res.fecha_tour} - {horarioTexto}</strong><br/>
+                        <span style={{ fontSize: '0.9rem' }}>{res.tours?.titulo_es} ({res.pasajeros} pax)</span><br/>
+                        <span style={{ fontSize: '0.8rem', color: '#666' }}>{res.nombre_cliente} | {res.estado}</span>
+                      </div>
+                      <select 
+                        value={res.estado} 
+                        onChange={(e) => handleActualizarEstadoReserva(res.id, e.target.value)}
+                        style={{ padding: '5px', borderRadius: '4px' }}
+                      >
+                        <option value="pendiente">Pendiente</option>
+                        <option value="confirmado">Confirmado</option>
+                        <option value="cancelado">Cancelado</option>
+                      </select>
+                    </li>
+                  );
+                })}
               </ul>
             )}
           </div>
 
-          {/* Bloquear Fechas */}
-          <div style={styles.card}>
+          <div style={{ ...styles.card, marginBottom: '30px' }}>
             <h2>Bloquear Fechas (Calendario)</h2>
             <form onSubmit={handleBloquearFecha} style={{ display: 'flex', gap: '10px', marginBottom: '20px' }}>
-              <input type="date" value={nuevaFecha} onChange={e => setNuevaFecha(e.target.value)} style={styles.input} required />
-              <input type="text" placeholder="Motivo (opcional)" value={motivoFecha} onChange={e => setMotivoFecha(e.target.value)} style={styles.input} />
+              <input type="date" value={nuevaFecha} onChange={e => setNuevaFecha(e.target.value)} style={{ ...styles.input, marginBottom: 0 }} required />
+              <input type="text" placeholder="Motivo (opcional)" value={motivoFecha} onChange={e => setMotivoFecha(e.target.value)} style={{ ...styles.input, marginBottom: 0 }} />
               <button type="submit" style={styles.btnPrimary}>Bloquear</button>
             </form>
+          </div>
 
-            <ul style={{ padding: 0 }}>
-              {fechasBloqueadas.map(f => (
-                <li key={f.id} style={{...styles.listItem, background: '#ffeaa7'}}>
-                  <span>📅 {f.fecha} - {f.motivo}</span>
-                  <button onClick={() => handleDesbloquearFecha(f.id)} style={styles.btnDanger}>Desbloquear</button>
-                </li>
-              ))}
-            </ul>
+          <div style={styles.card}>
+            <h2>Disponibilidad General</h2>
+            <div style={{ display: 'flex', flexDirection: 'column', gap: '15px', marginTop: '15px' }}>
+              <DatePicker selected={fechaCalendarioGrande} onChange={(date) => setFechaCalendarioGrande(date)} dayClassName={renderizarEstiloDia} inline />
+              
+              <div style={{ background: '#fff', padding: '15px', borderRadius: '8px', border: '1px solid #ddd' }}>
+                <h3 style={{ margin: '0 0 10px 0', fontSize: '1rem', color: '#1a3a5c' }}>Detalles del día seleccionado:</h3>
+                {infoDia?.bloqueoDelDia && (
+                  <div style={{ background: '#ffebee', color: '#c62828', padding: '8px', borderRadius: '4px', display: 'flex', justifyContent: 'space-between', marginBottom: '10px', fontSize: '0.85rem' }}>
+                    <span>🚫 Bloqueado: {infoDia.bloqueoDelDia.motivo}</span>
+                    <button onClick={() => handleDesbloquearFecha(infoDia.bloqueoDelDia.id)} style={{ background: 'none', border: 'none', color: '#c62828', cursor: 'pointer', textDecoration: 'underline' }}>Desbloquear</button>
+                  </div>
+                )}
+                {infoDia?.reservasDelDia.length === 0 && !infoDia?.bloqueoDelDia && <p style={{ fontSize: '0.85rem', color: '#777', margin: 0 }}>Sin actividad registrada.</p>}
+                {infoDia?.reservasDelDia.map(r => (
+                  <div key={r.id} style={{ fontSize: '0.85rem', padding: '5px 0', borderBottom: '1px solid #eee' }}>
+                    • <strong>{r.horario === 'morning' ? 'Mañana' : r.horario === 'afternoon' ? 'Tarde' : 'Noche'}:</strong> {r.tours?.titulo_es} ({r.nombre_cliente})
+                  </div>
+                ))}
+              </div>
+            </div>
           </div>
         </div>
       </div>
