@@ -1,26 +1,75 @@
 "use client";
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import React from 'react';
 import { useLanguage } from '../context/LanguageContext';
+import { supabase } from '../lib/supabase'; // Importamos Supabase
 
 export default function Contact() {
-  const { t } = useLanguage();
-const [toast, setToast] = useState({ show: false, type: '', title: '', msg: '' });
+  const { lang, t } = useLanguage();
+  const [toast, setToast] = useState({ show: false, type: '', title: '', msg: '' });
+  const [isSending, setIsSending] = useState(false);
+  
+  // NUEVO ESTADO: Para guardar los tours dinámicos de la base de datos
+  const [toursDinamic, setToursDinamic] = useState([]);
 
-const showToast = (type, title, msg) => {
-  setToast({ show: true, type, title, msg });
-  setTimeout(() => setToast({ show: false, type: '', title: '', msg: '' }), 4000);
-};
+  // NUEVO EFFECT: Traemos los tours ordenados y activos de Supabase
+  useEffect(() => {
+    async function fetchToursContacto() {
+      const { data } = await supabase
+        .from('tours')
+        .select('id, titulo_es, titulo_en')
+        .eq('activo', true)
+        .order('orden', { ascending: true });
+      
+      if (data) setToursDinamic(data);
+    }
+    fetchToursContacto();
+  }, []);
 
-  const handleContactForm = (e) => {
-  e.preventDefault();
-  showToast(
-    'success', 
-    t('¡Mensaje Enviado!', 'Message Sent!'), 
-    t('Te responderemos pronto.', 'We will respond soon.')
-  );
-  e.target.reset();
-};
+  const showToast = (type, title, msg) => {
+    setToast({ show: true, type, title, msg });
+    setTimeout(() => setToast({ show: false, type: '', title: '', msg: '' }), 4000);
+  };
+
+  const handleContactForm = async (e) => {
+    e.preventDefault();
+    setIsSending(true);
+
+    const formData = {
+      nombre: e.target.elements.nombre.value,
+      apellido: e.target.elements.apellido.value,
+      email: e.target.elements.email.value,
+      tour: e.target.elements.tour.value,
+      mensaje: e.target.elements.mensaje.value,
+    };
+
+    try {
+      const res = await fetch('/api/contacto', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(formData),
+      });
+
+      if (res.ok) {
+        showToast(
+          'success', 
+          t('¡Mensaje Enviado!', 'Message Sent!'), 
+          t('Te responderemos pronto.', 'We will respond soon.')
+        );
+        e.target.reset();
+      } else {
+        throw new Error("Fallo en el servidor");
+      }
+    } catch (error) {
+      showToast(
+        'error', 
+        t('Error al enviar', 'Error Sending'), 
+        t('Inténtalo de nuevo más tarde.', 'Please try again later.')
+      );
+    } finally {
+      setIsSending(false);
+    }
+  };
 
   return (
     <section className="contact animate-on-scroll" id="contacto">
@@ -78,52 +127,60 @@ const showToast = (type, title, msg) => {
             <div className="form-row">
               <div className="form-group">
                 <label>{t('Nombre', 'First Name')}</label>
-                <input type="text" required placeholder={t("Tu nombre", "Your name")} />
+                <input type="text" name="nombre" required placeholder={t("Tu nombre", "Your name")} />
               </div>
               <div className="form-group">
                 <label>{t('Apellido', 'Last Name')}</label>
-                <input type="text" required placeholder={t("Tu apellido", "Your last name")} />
+                <input type="text" name="apellido" required placeholder={t("Tu apellido", "Your last name")} />
               </div>
             </div>
             
             <div className="form-group">
               <label>Email</label>
-              <input type="email" required placeholder="tu@email.com" />
+              <input type="email" name="email" required placeholder="tu@email.com" />
             </div>
             
             <div className="form-group">
               <label>{t('Tour de Interés', 'Tour of Interest')}</label>
-              <select required>
+              <select name="tour" required>
                 <option value="">{t('Seleccioná un tour', 'Select a tour')}</option>
-                <option value="city">City Tour</option>
-                <option value="private">{t('City Tour Privado', 'Private City Tour')}</option>
-                <option value="night">{t('City Tour Nocturno', 'Night City Tour')}</option>
-                <option value="gaucho">{t('La Pampa Argentina y el Gaucho', 'The Argentine Pampa & the Gaucho')}</option>
-                <option value="delta">{t('Delta del Río de la Plata', 'Rio de la Plata Delta')}</option>
+                {/* REEMPLAZO: Mapeamos los tours reales de la base de datos de forma bilingüe */}
+                {toursDinamic.map((tItem) => (
+                  <option key={tItem.id} value={lang === 'es' ? tItem.titulo_es : tItem.titulo_en}>
+                    {lang === 'es' ? tItem.titulo_es : tItem.titulo_en}
+                  </option>
+                ))}
               </select>
             </div>
             
             <div className="form-group">
               <label>{t('Mensaje', 'Message')}</label>
-              <textarea rows="4" required placeholder={t("Tu consulta o mensaje...", "Your inquiry or message...")}></textarea>
+              <textarea name="mensaje" rows="4" required placeholder={t("Tu consulta o mensaje...", "Your inquiry or message...")}></textarea>
             </div>
             
-            <button type="submit" className="btn btn-primary" style={{ width: '100%', justifyContent: 'center' }}>
-              <i className="fas fa-paper-plane"></i>
-              <span>{t('Enviar Mensaje', 'Send Message')}</span>
+            <button type="submit" className="btn btn-primary" style={{ width: '100%', justifyContent: 'center' }} disabled={isSending}>
+              {isSending ? (
+                <span>{t('Enviando...', 'Sending...')}</span>
+              ) : (
+                <>
+                  <i className="fas fa-paper-plane"></i>
+                  <span>{t('Enviar Mensaje', 'Send Message')}</span>
+                </>
+              )}
             </button>
           </form>
         </div>
       </div>
+      
       <div className={`toast ${toast.show ? 'show' : ''}`}>
-  <div className={`toast-icon ${toast.type}`}>
-    {toast.type === 'success' ? <i className="fas fa-check"></i> : <i className="fas fa-exclamation"></i>}
-  </div>
-  <div className="toast-text">
-    <strong>{toast.title}</strong>
-    <span>{toast.msg}</span>
-  </div>
-</div>
+        <div className={`toast-icon ${toast.type}`}>
+          {toast.type === 'success' ? <i className="fas fa-check"></i> : <i className="fas fa-exclamation"></i>}
+        </div>
+        <div className="toast-text">
+          <strong>{toast.title}</strong>
+          <span>{toast.msg}</span>
+        </div>
+      </div>
     </section>
   );
 }

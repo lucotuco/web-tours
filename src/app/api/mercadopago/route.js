@@ -4,13 +4,11 @@ import { NextResponse } from 'next/server';
 export async function POST(request) {
   try {
     const body = await request.json();
-    const { titulo, precio_total } = body;
+    const { titulo, precio_total, reserva_id } = body;
 
     const client = new MercadoPagoConfig({ accessToken: process.env.MP_ACCESS_TOKEN });
     const preference = new Preference(client);
 
-    // Como Mercado Pago rechaza http://localhost, le pasamos una URL con HTTPS temporalmente.
-    // Cuando subas tu web a Vercel/producción, aquí irá tu dominio real (ej: https://mitour.com)
     const siteUrl = "https://www.google.com"; // <--- CAMBIAMOS ESTO SOLO PARA PROBAR
 
     const response = await preference.create({
@@ -29,7 +27,8 @@ export async function POST(request) {
           failure: `${siteUrl}/failure`,
           pending: `${siteUrl}/pending`
         },
-        auto_return: "approved"
+        auto_return: "approved",
+        external_reference: reserva_id ? reserva_id.toString() : "sin-id"
       }
     });
 

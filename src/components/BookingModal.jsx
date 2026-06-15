@@ -100,7 +100,7 @@ export default function BookingModal({ tour, onClose }) {
     const day = String(fechaSeleccionada.getDate()).padStart(2, '0');
     const fechaFormateada = `${year}-${month}-${day}`;
 
-    const { error } = await supabase.from('reservas').insert([{
+    const { data, error } = await supabase.from('reservas').insert([{
       tour_id: tour.id,
       nombre_cliente: formData.nombre,
       email_cliente: formData.email,
@@ -111,25 +111,30 @@ export default function BookingModal({ tour, onClose }) {
       idioma: formData.idioma,
       notas: formData.notas,
       estado: estado
-    }]);
+    }]).select().single();
 
     if (error) {
       alert("Error guardando reserva: " + error.message);
-      return false;
+      return null; // Devolvemos null si falla
     }
-    return true;
+    return data.id;
   };
 
   const pagarConMercadoPago = async () => {
     setIsProcessing(true);
-    await guardarReservaEnBaseDeDatos('pendiente (Mercado Pago)'); 
+    const reservaId = await guardarReservaEnBaseDeDatos('pendiente (Mercado Pago)');
+    if (!reservaId) {
+       setIsProcessing(false);
+       return;
+    }
     try {
       const res = await fetch('/api/mercadopago', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
           titulo: `Reserva: ${lang === 'es' ? tour.titulo_es : tour.titulo_en}`,
-          precio_total: montoTotalArs
+          precio_total: montoTotalArs,
+          reserva_id: reservaId
         })
       });
       const data = await res.json();
@@ -270,24 +275,31 @@ export default function BookingModal({ tour, onClose }) {
                       try {
                         await actions.order.capture();
                         const guardadoOk = await guardarReservaEnBaseDeDatos('confirmado y pagado (PayPal)');
+                        
                         if (guardadoOk) {
+                          // ==== NUEVO: DISPARAMOS EL EMAIL ====
+                          await fetch('/api/email', {
+                            method: 'POST',
+                            headers: { 'Content-Type': 'application/json' },
+                            body: JSON.stringify({
+                              nombre: formData.nombre,
+                              email: formData.email, // Recuerda poner TU email de Resend al llenar el formulario
+                              tourTitulo: lang === 'es' ? tour.titulo_es : tour.titulo_en,
+                              fecha: fechaSeleccionada.toLocaleDateString('es-AR'),
+                              pasajeros: formData.pasajeros,
+                              idioma: lang
+                            })
+                          });
+                          // ====================================
+
                           window.location.href = '/success';
                         }
                       } catch (err) {
-                        console.error("Error capturando PayPal:", err);
+                        console.error("====== ERROR CAPTURANDO PAYPAL ======", err);
                         alert(t("Hubo un problema confirmando el pago. Intentá nuevamente.", "There was a problem confirming the payment. Please try again."));
+                      } finally {
                         setIsProcessing(false);
                       }
-                    }}
-                    onCancel={() => {
-                      console.log("El usuario cerró la ventana de PayPal.");
-                      setIsProcessing(false);
-                    }}
-                    onError={(err) => {
-                      if (err.message && err.message.includes("Window closed")) return;
-                      console.error("Error de PayPal:", err);
-                      alert(t("Hubo un problema de conexión con PayPal. Intentá nuevamente.", "Connection problem with PayPal. Please try again."));
-                      setIsProcessing(false);
                     }}
                   />
                 </div>

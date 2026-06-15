@@ -1,5 +1,6 @@
 "use client";
 import React from 'react';
+import Image from 'next/image';
 import { useLanguage } from '../context/LanguageContext';
 
 export default function About() {
@@ -17,8 +18,15 @@ export default function About() {
       </div>
       
       <div className="about-grid">
-        <div className="about-image">
-          <img src="https://image.qwenlm.ai/public_source/aabe8858-4661-44d6-b253-4742ce16e8fd/1bc6c3f1b-9737-40ce-8304-46540c7c9143.png" alt="Buenos Aires La Boca" />
+        {/* IMAGEN OPTIMIZADA */}
+        <div className="about-image" style={{ minHeight: '500px' }}>
+          <Image 
+            src="https://image.qwenlm.ai/public_source/aabe8858-4661-44d6-b253-4742ce16e8fd/1bc6c3f1b-9737-40ce-8304-46540c7c9143.png" 
+            alt="Buenos Aires La Boca" 
+            fill
+            style={{ objectFit: 'cover' }}
+            sizes="(max-width: 768px) 100vw, 50vw"
+          />
           <div className="about-image-badge">{t('Desde 2015', 'Since 2015')}</div>
         </div>
         
