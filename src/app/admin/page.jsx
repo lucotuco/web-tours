@@ -34,13 +34,18 @@ export default function AdminPage() {
 
   const fetchDashboardData = async () => {
     setLoading(true);
-    
+
     // 1. Cargar Tours (ordenados por la columna 'orden')
     const { data: t } = await supabase.from('tours').select('*').order('orden', { ascending: true });
     if (t) setTours(t);
 
-    // 2. Cargar Reservas futuras
-    const hoy = new Date().toISOString().split('T')[0];
+    // 2. Cargar Reservas futuras (CORRECCIÓN DE ZONA HORARIA AQUÍ)
+    const hoyObj = new Date();
+    const year = hoyObj.getFullYear();
+    const month = String(hoyObj.getMonth() + 1).padStart(2, '0');
+    const day = String(hoyObj.getDate()).padStart(2, '0');
+    const hoy = `${year}-${month}-${day}`; 
+
     const { data: r } = await supabase.from('reservas')
       .select('*, tours(titulo_es)')
       .gte('fecha_tour', hoy)
@@ -139,9 +144,8 @@ export default function AdminPage() {
     const items = Array.from(tours);
     const [reorderedItem] = items.splice(result.source.index, 1);
     items.splice(result.destination.index, 0, reorderedItem);
-
     const updatedItems = items.map((item, index) => ({ ...item, orden: index }));
-    setTours(updatedItems); 
+    setTours(updatedItems);
 
     try {
       const promises = updatedItems.map(tour =>
@@ -196,7 +200,7 @@ export default function AdminPage() {
     const fechaStr = `${year}-${month}-${day}`;
 
     if (fechasBloqueadas.some(fb => fb.fecha === fechaStr)) return "dia-bloqueado-admin";
-    
+
     const reservasDelDia = reservas.filter(r => r.fecha_tour === fechaStr);
     if (reservasDelDia.length === 0) return "";
     
@@ -238,6 +242,7 @@ export default function AdminPage() {
   };
 
   const infoDia = obtenerInfoDiaSeleccionado();
+
   if (loading) return <div style={{ textAlign: 'center', padding: '50px' }}>Cargando panel de administración...</div>;
 
   return (
@@ -250,6 +255,7 @@ export default function AdminPage() {
       </div>
 
       <div style={styles.grid}>
+      
         {/* COLUMNA IZQUIERDA: GESTIÓN DE TOURS */}
         <div>
           <div style={styles.card}>
@@ -261,11 +267,12 @@ export default function AdminPage() {
                 <input style={styles.input} type="number" name="precio" placeholder="Precio USD" value={formData.precio} onChange={handleInputChange} required />
                 <input style={styles.input} type="number" name="precio_ars" placeholder="Precio ARS" value={formData.precio_ars} onChange={handleInputChange} required />
               </div>
+      
               <input style={styles.input} name="duracion" placeholder="Duración (Ej: 3 hs)" value={formData.duracion} onChange={handleInputChange} />
               <input style={styles.input} name="imagen_url" placeholder="URL de la Imagen" value={formData.imagen_url} onChange={handleInputChange} />
               <textarea style={{...styles.input, minHeight: '60px'}} name="descripcion_es" placeholder="Descripción (ES)" value={formData.descripcion_es} onChange={handleInputChange} required />
               <textarea style={{...styles.input, minHeight: '60px'}} name="descripcion_en" placeholder="Descripción (EN)" value={formData.descripcion_en} onChange={handleInputChange} required />
-              
+            
               <label style={{ display: 'flex', alignItems: 'center', gap: '10px', marginBottom: '15px', cursor: 'pointer' }}>
                 <input type="checkbox" name="activo" checked={formData.activo} onChange={handleInputChange} />
                 <strong>Tour Activo (Visible en la web)</strong>
