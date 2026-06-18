@@ -117,7 +117,6 @@ export default function Contact() {
             <a href="#"><i className="fab fa-facebook-f"></i></a>
             <a href="#"><i className="fab fa-instagram"></i></a>
             <a href="https://wa.me/5491141404888" target="_blank" rel="noreferrer"><i className="fab fa-whatsapp"></i></a>
-            <a href="#"><i className="fab fa-tripadvisor"></i></a>
             <a href="#"><i className="fab fa-youtube"></i></a>
           </div>
         </div>
