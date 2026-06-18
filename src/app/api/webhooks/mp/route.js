@@ -8,12 +8,17 @@ const resend = new Resend(process.env.RESEND_API_KEY);
 
 export async function POST(request) {
   try {
+    // 1. Extraemos el cuerpo (body) en formato JSON que nos envía Mercado Pago
+    const body = await request.json();
     const url = new URL(request.url);
-    const id = url.searchParams.get("data.id") || url.searchParams.get("id");
-    const type = url.searchParams.get("type") || url.searchParams.get("topic");
 
+    // 2. Buscamos el ID y el Tipo de evento. 
+    // Buscamos primero en el body (Webhook) y luego en la URL (por si es IPN antiguo)
+    const id = body?.data?.id || url.searchParams.get("data.id") || url.searchParams.get("id");
+    const type = body?.type || body?.topic || url.searchParams.get("type") || url.searchParams.get("topic");
+
+    // 3. Verificamos que sea un evento de pago y que tengamos un ID válido
     if (type === 'payment' && id) {
-      
       const client = new MercadoPagoConfig({ accessToken: process.env.MP_ACCESS_TOKEN });
       const payment = new Payment(client);
       const paymentInfo = await payment.get({ id });
@@ -23,7 +28,7 @@ export async function POST(request) {
         const reservaId = paymentInfo.external_reference; 
         
         if (reservaId && reservaId !== "sin-id") {
-          // 1. Actualizamos la reserva a "confirmado" en Supabase
+          // Actualizamos la reserva a "confirmado" en Supabase
           const { error } = await supabase
             .from('reservas')
             .update({ estado: 'confirmado y pagado (Mercado Pago)' })
@@ -32,7 +37,7 @@ export async function POST(request) {
           if (!error) {
             console.log(`¡Reserva ${reservaId} actualizada en DB!`);
 
-            // 2. Traemos todos los datos de esa reserva para poder enviar el email
+            // Traemos todos los datos de esa reserva para poder enviar el email
             const { data: reserva } = await supabase
               .from('reservas')
               .select('*, tours(titulo_es, titulo_en)')
@@ -40,7 +45,7 @@ export async function POST(request) {
               .single();
 
             if (reserva) {
-              // 3. Preparamos el correo en el idioma que eligió el cliente
+              // Preparamos el correo en el idioma que eligió el cliente
               const isEn = reserva.idioma === 'en';
               const tourTitulo = isEn ? reserva.tours.titulo_en : reserva.tours.titulo_es;
               
@@ -54,7 +59,7 @@ export async function POST(request) {
               const outro1 = isEn ? 'We will contact you soon to coordinate the meeting point.' : 'Nos pondremos en contacto contigo pronto para coordinar el punto de encuentro.';
               const outro2 = isEn ? 'Thank you for choosing us!' : '¡Gracias por elegirnos!';
 
-              // 4. Disparamos el email
+              // Disparamos el email
               await resend.emails.send({
                 from: 'onboarding@resend.dev', 
                 to: [reserva.email_cliente],
@@ -83,6 +88,8 @@ export async function POST(request) {
               });
               console.log("Email de Mercado Pago enviado a:", reserva.email_cliente);
             }
+          } else {
+            console.error("Error al actualizar la base de datos:", error);
           }
         }
       }
@@ -91,6 +98,8 @@ export async function POST(request) {
     return new NextResponse('OK', { status: 200 });
   } catch (error) {
     console.error("Error en Webhook MP:", error);
-    return new NextResponse('Error', { status: 500 });
+    // Mercado Pago requiere que devolvamos un 200 OK incluso si falla internamente, 
+    // para que no siga reintentando enviar la misma notificación infinitamente.
+    return new NextResponse('Error procesado', { status: 200 });
   }
 }
