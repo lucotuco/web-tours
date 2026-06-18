@@ -27,7 +27,8 @@ export async function POST(request) {
           pending: `${siteUrl}/pending`
         },
         auto_return: "approved",
-        external_reference: reserva_id ? reserva_id.toString() : "sin-id"
+        external_reference: reserva_id ? reserva_id.toString() : "sin-id",
+        notification_url: `${siteUrl}/api/webhooks/mp`
       }
     });
 
