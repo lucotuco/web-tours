@@ -23,10 +23,15 @@ export default function BookingModal({ tour, onClose }) {
   const [fechasBloqueadas, setFechasBloqueadas] = useState([]);
   const [reservasPorDia, setReservasPorDia] = useState({});
   const [todasLasReservas, setTodasLasReservas] = useState([]); 
-  const [success, setSuccess] = useState(false);
-  
-  // ESTADO: Para mostrar que el pago se está procesando
   const [isProcessing, setIsProcessing] = useState(false);
+
+  // EFECTO PARA BLOQUEAR EL SCROLL DEL NAVEGADOR
+  useEffect(() => {
+    document.body.style.overflow = 'hidden';
+    return () => {
+      document.body.style.overflow = 'auto'; // Restaura el scroll al cerrarse
+    };
+  }, []);
 
   useEffect(() => {
     async function traerDisponibilidad() {
@@ -115,7 +120,7 @@ export default function BookingModal({ tour, onClose }) {
 
     if (error) {
       alert("Error guardando reserva: " + error.message);
-      return null; // Devolvemos null si falla
+      return null; 
     }
     return data.id;
   };
@@ -154,8 +159,11 @@ export default function BookingModal({ tour, onClose }) {
 
   return (
     <PayPalScriptProvider options={{ "client-id": process.env.NEXT_PUBLIC_PAYPAL_CLIENT_ID, currency: "USD", intent: "capture" }}>
-      <div className="modal-overlay active" style={{ display: 'flex', zIndex: 9999 }}>
-        <div className="modal">
+      {/* SE AGREGA onClick={onClose} AL FONDO OSCURO PARA CERRAR EL MODAL */}
+      <div className="modal-overlay active" style={{ display: 'flex', zIndex: 9999 }} onClick={onClose}>
+        
+        {/* SE AGREGA onClick={(e) => e.stopPropagation()} PARA QUE EL CLICK ADENTRO NO LO CIERRE */}
+        <div className="modal" onClick={(e) => e.stopPropagation()}>
           <div className="modal-header">
             <h3>{t('Reservar:', 'Book:')} {lang === 'es' ? tour.titulo_es : tour.titulo_en}</h3>
             <button className="modal-close" onClick={onClose} disabled={isProcessing}>&times;</button>
@@ -232,7 +240,6 @@ export default function BookingModal({ tour, onClose }) {
             ) : (
               <div style={{ marginTop: '15px', position: 'relative' }}>
                 
-                {/* LOADER FLOTANTE (No borra los botones, solo se pone encima) */}
                 {isProcessing && (
                   <div style={{ position: 'absolute', top: 0, left: 0, right: 0, bottom: 0, background: 'rgba(255,255,255,0.9)', zIndex: 10, display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', borderRadius: '8px' }}>
                     <div className="spinner" style={{ width: '40px', height: '40px', borderWidth: '4px', marginBottom: '10px' }}></div>
@@ -242,7 +249,6 @@ export default function BookingModal({ tour, onClose }) {
                   </div>
                 )}
 
-                {/* CONTENEDOR DE BOTONES */}
                 <div style={{ display: 'flex', flexDirection: 'column', gap: '10px', opacity: isProcessing ? 0 : 1, pointerEvents: isProcessing ? 'none' : 'auto' }}>
                   {tour.precio_ars > 0 && (
                     <button 
@@ -277,21 +283,18 @@ export default function BookingModal({ tour, onClose }) {
                         const guardadoOk = await guardarReservaEnBaseDeDatos('confirmado y pagado (PayPal)');
                         
                         if (guardadoOk) {
-                          // ==== NUEVO: DISPARAMOS EL EMAIL ====
                           await fetch('/api/email', {
                             method: 'POST',
                             headers: { 'Content-Type': 'application/json' },
                             body: JSON.stringify({
                               nombre: formData.nombre,
-                              email: formData.email, // Recuerda poner TU email de Resend al llenar el formulario
+                              email: formData.email, 
                               tourTitulo: lang === 'es' ? tour.titulo_es : tour.titulo_en,
                               fecha: fechaSeleccionada.toLocaleDateString('es-AR'),
                               pasajeros: formData.pasajeros,
                               idioma: lang
                             })
                           });
-                          // ====================================
-
                           window.location.href = '/success';
                         }
                       } catch (err) {

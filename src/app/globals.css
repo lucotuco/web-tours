@@ -1459,3 +1459,55 @@ section {
 
 .toast-text strong { display: block; font-size: 0.9rem; color: var(--primary); }
 .toast-text span { font-size: 0.8rem; color: var(--text-light); }
+
+.dia-vacio {
+  background-color: transparent;
+}
+.dia-parcial {
+  background-color: #d1fae5 !important; /* Verde claro - Hay reservas pero no está lleno */
+  color: #065f46 !important;
+  font-weight: bold;
+}
+.dia-lleno {
+  background-color: #fee2e2 !important; /* Rojo claro - Lleno */
+  color: #991b1b !important;
+  font-weight: bold;
+}
+.dia-bloqueado {
+  background-color: #e5e7eb !important; /* Gris - Bloqueado */
+  color: #6b7280 !important;
+  text-decoration: line-through;
+}
+.modal {
+  overflow: hidden !important; 
+  display: flex !important;
+  flex-direction: column;
+  max-height: 90vh; /* Evita que el modal sea más alto que el 90% de la pantalla */
+}
+
+/* 2. El cuerpo toma el espacio sobrante y hace scroll interno si es necesario */
+.modal-body {
+  overflow-y: auto;
+  flex: 1; /* Ocupa el espacio restante que deja el header */
+  padding-right: 5px; /* Un pequeño margen opcional para que el texto no se pegue a la barra */
+}
+
+/* 3. Personalización de la barra flotante (WebKit: Chrome, Safari, Edge) */
+.modal-body::-webkit-scrollbar {
+  width: 12px;
+}
+
+.modal-body::-webkit-scrollbar-track {
+  background: transparent; 
+  margin: 15px 0; 
+}
+
+.modal-body::-webkit-scrollbar-thumb {
+  background-color: #cbd5e1; 
+  border-radius: 10px; 
+  border: 4px solid #ffffff; /* Asegúrate de que este color coincida con el fondo de tu modal */
+}
+
+.modal-body::-webkit-scrollbar-thumb:hover {
+  background-color: #94a3b8; 
+}

@@ -17,12 +17,10 @@ export default function AdminPage() {
   const [toast, setToast] = useState('');
   const router = useRouter();
 
-  // Estados para bloquear fecha nueva
   const [nuevaFecha, setNuevaFecha] = useState('');
   const [motivoFecha, setMotivoFecha] = useState('');
   const [fechaCalendarioGrande, setFechaCalendarioGrande] = useState(new Date());
 
-  // Estado del formulario de tours
   const [formData, setFormData] = useState({
     titulo_es: '', titulo_en: '',
     precio: '', precio_ars: '',
@@ -35,16 +33,14 @@ export default function AdminPage() {
   const fetchDashboardData = async () => {
     setLoading(true);
 
-    // 1. Cargar Tours (ordenados por la columna 'orden')
     const { data: t } = await supabase.from('tours').select('*').order('orden', { ascending: true });
     if (t) setTours(t);
 
-    // 2. Cargar Reservas futuras (CORRECCIÓN DE ZONA HORARIA AQUÍ)
     const hoyObj = new Date();
     const year = hoyObj.getFullYear();
     const month = String(hoyObj.getMonth() + 1).padStart(2, '0');
     const day = String(hoyObj.getDate()).padStart(2, '0');
-    const hoy = `${year}-${month}-${day}`; 
+    const hoy = `${year}-${month}-${day}`;
 
     const { data: r } = await supabase.from('reservas')
       .select('*, tours(titulo_es)')
@@ -52,7 +48,6 @@ export default function AdminPage() {
       .order('fecha_tour', { ascending: true });
     if (r) setReservas(r);
 
-    // 3. Cargar Fechas Bloqueadas
     const { data: f } = await supabase.from('fechas_bloqueadas')
       .select('*')
       .gte('fecha', hoy)
@@ -66,7 +61,6 @@ export default function AdminPage() {
     fetchDashboardData();
   }, []);
 
-  // Cerrar Sesión Segura
   const handleLogout = async () => {
     await supabase.auth.signOut();
     router.push('/admin/login');
@@ -138,7 +132,6 @@ export default function AdminPage() {
     }
   };
 
-  // DRAG AND DROP - Guardar Orden
   const handleDragEnd = async (result) => {
     if (!result.destination) return;
     const items = Array.from(tours);
@@ -161,11 +154,12 @@ export default function AdminPage() {
   /* ================= MÉTODOS DEL CALENDARIO ================= */
   const handleActualizarEstadoReserva = async (id, nuevoEstado) => {
     try {
+      setReservas(reservas.map(r => r.id === id ? { ...r, estado: nuevoEstado } : r));
       await supabase.from('reservas').update({ estado: nuevoEstado }).eq('id', id);
       showToast("Estado de reserva actualizado");
-      fetchDashboardData();
     } catch (error) {
       alert("Error al actualizar reserva");
+      fetchDashboardData(); 
     }
   };
 
@@ -205,9 +199,11 @@ export default function AdminPage() {
     if (reservasDelDia.length === 0) return "";
     
     const tienePendiente = reservasDelDia.some(r => r.estado?.includes('pendiente'));
-    if (reservasDelDia.length >= 3) return "dia-lleno";
+    if (reservasDelDia.length >= 3) return "dia-lleno"; 
+    
     if (tienePendiente) return "dia-pendiente";
-    return "dia-con-reserva";
+    
+    return "dia-con-reserva"; 
   };
 
   const obtenerInfoDiaSeleccionado = () => {
@@ -230,8 +226,8 @@ export default function AdminPage() {
   };
 
   const styles = {
-    container: { maxWidth: '1200px', margin: '0 auto', padding: '40px 20px', fontFamily: 'system-ui', color: '#333' },
-    grid: { display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '30px' },
+    container: { maxWidth: '1400px', margin: '0 auto', padding: '40px 20px', fontFamily: 'system-ui', color: '#333' },
+    grid: { display: 'grid', gridTemplateColumns: '1fr 1.3fr', gap: '30px' },
     card: { background: '#f9f9f9', padding: '25px', borderRadius: '12px', border: '1px solid #eee' },
     input: { padding: '10px', borderRadius: '6px', border: '1px solid #ddd', width: '100%', marginBottom: '10px' },
     btnPrimary: { padding: '10px 15px', background: '#1a3a5c', color: 'white', border: 'none', borderRadius: '6px', cursor: 'pointer' },
@@ -255,8 +251,6 @@ export default function AdminPage() {
       </div>
 
       <div style={styles.grid}>
-      
-        {/* COLUMNA IZQUIERDA: GESTIÓN DE TOURS */}
         <div>
           <div style={styles.card}>
             <h2>{editingId ? 'Editar Tour' : 'Crear Nuevo Tour'}</h2>
@@ -331,10 +325,9 @@ export default function AdminPage() {
           </DragDropContext>
         </div>
 
-        {/* COLUMNA DERECHA: RESERVAS Y CALENDARIO */}
         <div>
           <div style={{ ...styles.card, marginBottom: '30px' }}>
-            <h2>Próximas Reservas</h2>
+            <h2>Próximas Reservas Generales</h2>
             {reservas.length === 0 ? <p>No hay reservas futuras.</p> : (
               <ul style={{ padding: 0, maxHeight: '300px', overflowY: 'auto' }}>
                 {reservas.map(res => {
@@ -344,15 +337,19 @@ export default function AdminPage() {
                       <div>
                         <strong>{res.fecha_tour} - {horarioTexto}</strong><br/>
                         <span style={{ fontSize: '0.9rem' }}>{res.tours?.titulo_es} ({res.pasajeros} pax)</span><br/>
-                        <span style={{ fontSize: '0.8rem', color: '#666' }}>{res.nombre_cliente} | {res.estado}</span>
+                        <span style={{ fontSize: '0.8rem', color: '#666' }}>{res.nombre_cliente}</span>
                       </div>
+                      
                       <select 
                         value={res.estado} 
                         onChange={(e) => handleActualizarEstadoReserva(res.id, e.target.value)}
-                        style={{ padding: '5px', borderRadius: '4px' }}
+                        style={{ padding: '5px', borderRadius: '4px', border: '1px solid #ccc', outline: 'none' }}
                       >
                         <option value="pendiente">Pendiente</option>
-                        <option value="confirmado">Confirmado</option>
+                        <option value="pendiente (Mercado Pago)">Pendiente (Mercado Pago)</option>
+                        <option value="confirmado y pagado (Mercado Pago)">Confirmado (Mercado Pago)</option>
+                        <option value="confirmado y pagado (PayPal)">Confirmado (PayPal)</option>
+                        <option value="confirmado">Confirmado (Manual)</option>
                         <option value="cancelado">Cancelado</option>
                       </select>
                     </li>
@@ -363,7 +360,7 @@ export default function AdminPage() {
           </div>
 
           <div style={{ ...styles.card, marginBottom: '30px' }}>
-            <h2>Bloquear Fechas (Calendario)</h2>
+            <h2>Bloquear Fechas</h2>
             <form onSubmit={handleBloquearFecha} style={{ display: 'flex', gap: '10px', marginBottom: '20px' }}>
               <input type="date" value={nuevaFecha} onChange={e => setNuevaFecha(e.target.value)} style={{ ...styles.input, marginBottom: 0 }} required />
               <input type="text" placeholder="Motivo (opcional)" value={motivoFecha} onChange={e => setMotivoFecha(e.target.value)} style={{ ...styles.input, marginBottom: 0 }} />
@@ -373,25 +370,76 @@ export default function AdminPage() {
 
           <div style={styles.card}>
             <h2>Disponibilidad General</h2>
-            <div style={{ display: 'flex', flexDirection: 'column', gap: '15px', marginTop: '15px' }}>
-              <DatePicker selected={fechaCalendarioGrande} onChange={(date) => setFechaCalendarioGrande(date)} dayClassName={renderizarEstiloDia} inline />
+            
+            {/* CORRECCIÓN DE LA GRILLA Y TAMAÑO AQUÍ */}
+            <div style={{ display: 'grid', gridTemplateColumns: 'auto 1fr', gap: '20px', marginTop: '15px', alignItems: 'start' }}>
               
-              <div style={{ background: '#fff', padding: '15px', borderRadius: '8px', border: '1px solid #ddd' }}>
-                <h3 style={{ margin: '0 0 10px 0', fontSize: '1rem', color: '#1a3a5c' }}>Detalles del día seleccionado:</h3>
+              <div style={{ paddingBottom: '10px' }} className="calendario-admin-grande">
+                <DatePicker 
+                  selected={fechaCalendarioGrande} 
+                  onChange={(date) => setFechaCalendarioGrande(date)} 
+                  dayClassName={renderizarEstiloDia} 
+                  inline 
+                />
+              </div>
+              
+              <div style={{ background: '#fff', padding: '20px', borderRadius: '8px', border: '1px solid #ddd', height: '100%' }}>
+                <h3 style={{ margin: '0 0 15px 0', fontSize: '1.1rem', color: '#1a3a5c', borderBottom: '2px solid #eee', paddingBottom: '10px' }}>
+                  Detalles del: {fechaCalendarioGrande.toLocaleDateString('es-AR')}
+                </h3>
+
                 {infoDia?.bloqueoDelDia && (
-                  <div style={{ background: '#ffebee', color: '#c62828', padding: '8px', borderRadius: '4px', display: 'flex', justifyContent: 'space-between', marginBottom: '10px', fontSize: '0.85rem' }}>
-                    <span>🚫 Bloqueado: {infoDia.bloqueoDelDia.motivo}</span>
-                    <button onClick={() => handleDesbloquearFecha(infoDia.bloqueoDelDia.id)} style={{ background: 'none', border: 'none', color: '#c62828', cursor: 'pointer', textDecoration: 'underline' }}>Desbloquear</button>
+                  <div style={{ background: '#ffebee', color: '#c62828', padding: '12px', borderRadius: '6px', display: 'flex', flexDirection: 'column', gap: '8px', marginBottom: '15px' }}>
+                    <span style={{ fontWeight: 'bold' }}>🚫 Día Bloqueado</span>
+                    <span style={{ fontSize: '0.9rem' }}>Motivo: {infoDia.bloqueoDelDia.motivo || 'No especificado'}</span>
+                    <button onClick={() => handleDesbloquearFecha(infoDia.bloqueoDelDia.id)} style={{ alignSelf: 'flex-start', background: 'none', border: 'none', color: '#c62828', cursor: 'pointer', textDecoration: 'underline', padding: 0 }}>Desbloquear día</button>
                   </div>
                 )}
-                {infoDia?.reservasDelDia.length === 0 && !infoDia?.bloqueoDelDia && <p style={{ fontSize: '0.85rem', color: '#777', margin: 0 }}>Sin actividad registrada.</p>}
-                {infoDia?.reservasDelDia.map(r => (
-                  <div key={r.id} style={{ fontSize: '0.85rem', padding: '5px 0', borderBottom: '1px solid #eee' }}>
-                    • <strong>{r.horario === 'morning' ? 'Mañana' : r.horario === 'afternoon' ? 'Tarde' : 'Noche'}:</strong> {r.tours?.titulo_es} ({r.nombre_cliente})
-                  </div>
-                ))}
+
+                {infoDia?.reservasDelDia.length === 0 && !infoDia?.bloqueoDelDia && (
+                  <p style={{ fontSize: '0.9rem', color: '#777', fontStyle: 'italic', margin: 0 }}>
+                    Sin actividad registrada para esta fecha.
+                  </p>
+                )}
+                
+                {infoDia?.reservasDelDia.length > 0 && (
+                  <ul style={{ listStyle: 'none', padding: 0, margin: 0, maxHeight: '400px', overflowY: 'auto' }}>
+                    {infoDia.reservasDelDia.map(r => (
+                      <li key={r.id} style={{ padding: '15px', border: '1px solid #eee', borderRadius: '8px', marginBottom: '12px', background: '#fafafa' }}>
+                        
+                        <p style={{ margin: '0 0 10px 0', color: '#1a3a5c', fontWeight: 'bold', fontSize: '1rem' }}>
+                          {r.tours?.titulo_es}
+                        </p>
+                        
+                        <div style={{ display: 'grid', gridTemplateColumns: '1fr', gap: '6px', fontSize: '0.9rem', color: '#444' }}>
+                          <span>👤 <strong>Cliente:</strong> {r.nombre_cliente}</span>
+                          {/* NUEVOS CAMPOS AQUÍ */}
+                          <span>📱 <strong>Teléfono:</strong> {r.telefono || 'No especificado'}</span>
+                          <span>📝 <strong>Notas:</strong> {r.notas || 'Sin notas'}</span>
+                          <span>👥 <strong>Pasajeros:</strong> {r.pasajeros}</span>
+                          <span>🕒 <strong>Horario:</strong> {r.horario === 'morning' ? 'Mañana' : r.horario === 'afternoon' ? 'Tarde' : 'Noche'}</span>
+                          <span>🗣️ <strong>Idioma:</strong> {r.idioma === 'en' ? 'Inglés' : r.idioma === 'both' ? 'Bilingüe' : 'Español'}</span>
+                        </div>
+                        
+                        <div style={{ marginTop: '12px', paddingTop: '12px', borderTop: '1px solid #ddd', display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+                          <span style={{ 
+                            padding: '4px 10px', 
+                            borderRadius: '12px', 
+                            fontSize: '0.8rem', 
+                            fontWeight: 'bold',
+                            background: r.estado.includes('confirmado') ? '#d1fae5' : r.estado.includes('cancelado') ? '#fee2e2' : '#fef3c7',
+                            color: r.estado.includes('confirmado') ? '#065f46' : r.estado.includes('cancelado') ? '#991b1b' : '#92400e'
+                          }}>
+                            {r.estado}
+                          </span>
+                        </div>
+                      </li>
+                    ))}
+                  </ul>
+                )}
               </div>
             </div>
+
           </div>
         </div>
       </div>
