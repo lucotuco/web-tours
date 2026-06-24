@@ -20,6 +20,7 @@ export default function AdminPage() {
   const [nuevaFecha, setNuevaFecha] = useState('');
   const [motivoFecha, setMotivoFecha] = useState('');
   const [fechaCalendarioGrande, setFechaCalendarioGrande] = useState(new Date());
+  const [imagenFile, setImagenFile] = useState(null);
 
   const [formData, setFormData] = useState({
     titulo_es: '', titulo_en: '',
@@ -73,27 +74,62 @@ export default function AdminPage() {
     setFormData({ ...formData, [e.target.name]: value });
   };
 
+  const handleImageChange = (e) => {
+    if (e.target.files && e.target.files[0]) {
+      setImagenFile(e.target.files[0]);
+    }
+  };
+
   const handleSubmitTour = async (e) => {
     e.preventDefault();
     try {
+      let finalImageUrl = formData.imagen_url; // Por defecto, mantenemos la que ya tenía (si estamos editando)
+
+      // Si el usuario seleccionó una imagen nueva de su compu, la subimos a Supabase
+      if (imagenFile) {
+        const fileExt = imagenFile.name.split('.').pop();
+        const fileName = `${Date.now()}-${Math.random().toString(36).substring(2, 15)}.${fileExt}`;
+        const filePath = `tours/${fileName}`;
+
+        // Subimos el archivo al bucket "tours-images"
+        const { data: uploadData, error: uploadError } = await supabase.storage
+          .from('tours-images')
+          .upload(filePath, imagenFile);
+
+        if (uploadError) throw uploadError;
+
+        // Pedimos la URL pública de esa imagen que acabamos de subir
+        const { data: publicUrlData } = supabase.storage
+          .from('tours-images')
+          .getPublicUrl(filePath);
+
+        finalImageUrl = publicUrlData.publicUrl;
+      }
+
+      // Preparamos los datos finales a guardar
+      const dataToSave = { ...formData, imagen_url: finalImageUrl };
+
       if (editingId) {
-        const { error } = await supabase.from('tours').update(formData).eq('id', editingId);
+        const { error } = await supabase.from('tours').update(dataToSave).eq('id', editingId);
         if (error) throw error;
         showToast("Tour actualizado con éxito");
       } else {
         const newOrden = tours.length;
-        const { error } = await supabase.from('tours').insert([{ ...formData, orden: newOrden }]);
+        const { error } = await supabase.from('tours').insert([{ ...dataToSave, orden: newOrden }]);
         if (error) throw error;
         showToast("Tour creado con éxito");
       }
 
+      // Limpiamos todo después de guardar
       setFormData({
         titulo_es: '', titulo_en: '', precio: '', precio_ars: '', duracion: '', imagen_url: '',
         descripcion_es: '', descripcion_en: '', categoria_es: 'Popular', categoria_en: 'Popular', activo: true
       });
+      setImagenFile(null); // Limpiamos el archivo
       setEditingId(null);
       fetchDashboardData();
     } catch (error) {
+      console.error(error);
       alert("Hubo un error al guardar el tour.");
     }
   };
@@ -108,6 +144,7 @@ export default function AdminPage() {
       activo: tour.activo !== false 
     });
     setEditingId(tour.id);
+    setImagenFile(null); 
     window.scrollTo({ top: 0, behavior: 'smooth' });
   };
 
@@ -263,7 +300,23 @@ export default function AdminPage() {
               </div>
       
               <input style={styles.input} name="duracion" placeholder="Duración (Ej: 3 hs)" value={formData.duracion} onChange={handleInputChange} />
-              <input style={styles.input} name="imagen_url" placeholder="URL de la Imagen" value={formData.imagen_url} onChange={handleInputChange} />
+              <div style={{ marginBottom: '10px' }}>
+                <label style={{ display: 'block', fontSize: '0.9rem', marginBottom: '5px', fontWeight: 'bold' }}>
+                  Imagen del Tour
+                </label>
+                <input 
+                  type="file" 
+                  accept="image/*" 
+                  style={styles.input} 
+                  onChange={handleImageChange} 
+                />
+                {/* Si estamos editando y ya hay una foto cargada, le avisamos */}
+                {editingId && formData.imagen_url && !imagenFile && (
+                  <p style={{ fontSize: '0.8rem', color: '#666', margin: '0' }}>
+                    Dejar en blanco para mantener la imagen actual.
+                  </p>
+                )}
+              </div>
               <textarea style={{...styles.input, minHeight: '60px'}} name="descripcion_es" placeholder="Descripción (ES)" value={formData.descripcion_es} onChange={handleInputChange} required />
               <textarea style={{...styles.input, minHeight: '60px'}} name="descripcion_en" placeholder="Descripción (EN)" value={formData.descripcion_en} onChange={handleInputChange} required />
             
