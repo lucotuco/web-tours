@@ -24,6 +24,7 @@ export default function Footer() {
         <div>
           <h4>{t('Tours', 'Tours')}</h4>
           <ul className="footer-links">
+            <li><a href="#transfers">{t('Transfers', 'Transfers')}</a></li>
             <li><a href="#tours">City Tour</a></li>
             <li><a href="#tours">{t('City Tour Privado', 'Private City Tour')}</a></li>
             <li><a href="#tours">{t('City Tour Nocturno', 'Night City Tour')}</a></li>

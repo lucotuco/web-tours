@@ -9,7 +9,7 @@ export async function POST(request) {
     const client = new MercadoPagoConfig({ accessToken: process.env.MP_ACCESS_TOKEN });
     const preference = new Preference(client);
 
-    const siteUrl = "https://web-tours-sable.vercel.app"; 
+    const siteUrl = "https://www.premiersurtours.ar"; 
     const response = await preference.create({
       body: {
         items: [

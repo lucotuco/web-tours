@@ -30,6 +30,7 @@ const toggleMobileMenu = () => setMobileMenuOpen(!mobileMenuOpen);
           <li><a href="#inicio">{t('Inicio', 'Home')}</a></li>
           <li><a href="#nosotros">{t('Nosotros', 'About Us')}</a></li>
           <li><a href="#tours">{t('Tours', 'Tours')}</a></li>
+          <li><a href="#transfers">{t('Transfers', 'Transfers')}</a></li>
           <li><a href="#como-funciona">{t('Cómo Funciona', 'How it Works')}</a></li>
           <li><a href="#testimonios">{t('Testimonios', 'Testimonials')}</a></li>
           <li><a href="#contacto">{t('Contacto', 'Contact')}</a></li>
@@ -60,6 +61,7 @@ const toggleMobileMenu = () => setMobileMenuOpen(!mobileMenuOpen);
   <a href="#inicio" onClick={toggleMobileMenu}>{t('Inicio', 'Home')}</a>
   <a href="#nosotros" onClick={toggleMobileMenu}>{t('Nosotros', 'About Us')}</a>
   <a href="#tours" onClick={toggleMobileMenu}>{t('Tours', 'Tours')}</a>
+  <a href="#transfers" onClick={toggleMobileMenu}>{t('Transfers', 'Transfers')}</a>
   <a href="#como-funciona" onClick={toggleMobileMenu}>{t('Cómo Funciona', 'How It Works')}</a>
   <a href="#testimonios" onClick={toggleMobileMenu}>{t('Testimonios', 'Testimonials')}</a>
   <a href="#contacto" onClick={toggleMobileMenu}>{t('Contacto', 'Contact')}</a>

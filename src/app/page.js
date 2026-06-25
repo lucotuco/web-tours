@@ -7,6 +7,7 @@ import HowItWorks from '../components/HowItWorks';
 import Contact from '../components/Contact';
 import Testimonials from '../components/Testimonials';
 import ScrollAnimations from '../components/ScrollAnimations';
+import TransfersSection from '../components/TransfersSection';
 
 export default function Home() {
   return (
@@ -16,6 +17,7 @@ export default function Home() {
       <Hero />
       <About />
       <ToursSection />
+      <TransfersSection />
       <HowItWorks />
       <Testimonials />
       <Contact />
