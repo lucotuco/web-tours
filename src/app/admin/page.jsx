@@ -9,8 +9,11 @@ import "react-datepicker/dist/react-datepicker.css";
 
 export default function AdminPage() {
   const [tours, setTours] = useState([]);
+  const [transfers, setTransfers] = useState([]);
   const [reservas, setReservas] = useState([]);
+  const [reservasTransfers, setReservasTransfers] = useState([]);
   const [fechasBloqueadas, setFechasBloqueadas] = useState([]);
+  const [activeTab, setActiveTab] = useState('tours'); // Estado para el botón alternador
   
   const [loading, setLoading] = useState(true);
   const [editingId, setEditingId] = useState(null);
@@ -37,6 +40,9 @@ export default function AdminPage() {
     const { data: t } = await supabase.from('tours').select('*').order('orden', { ascending: true });
     if (t) setTours(t);
 
+    const { data: tr } = await supabase.from('transfers').select('*').order('orden', { ascending: true });
+    if (tr) setTransfers(tr);
+
     const hoyObj = new Date();
     const year = hoyObj.getFullYear();
     const month = String(hoyObj.getMonth() + 1).padStart(2, '0');
@@ -48,6 +54,12 @@ export default function AdminPage() {
       .gte('fecha_tour', hoy)
       .order('fecha_tour', { ascending: true });
     if (r) setReservas(r);
+
+    const { data: rt } = await supabase.from('reservas_transfer')
+      .select('*, transfers(titulo_es)')
+      .gte('fecha_transfer', hoy)
+      .order('fecha_transfer', { ascending: true });
+    if (rt) setReservasTransfers(rt);
 
     const { data: f } = await supabase.from('fechas_bloqueadas')
       .select('*')
@@ -68,7 +80,7 @@ export default function AdminPage() {
     router.refresh();
   };
 
-  /* ================= MÉTODOS DE TOURS ================= */
+  /* ================= MÉTODOS DE FORMULARIOS ================= */
   const handleInputChange = (e) => {
     const value = e.target.type === 'checkbox' ? e.target.checked : e.target.value;
     setFormData({ ...formData, [e.target.name]: value });
@@ -83,41 +95,55 @@ export default function AdminPage() {
   const handleSubmitTour = async (e) => {
     e.preventDefault();
     try {
-      let finalImageUrl = formData.imagen_url; // Por defecto, mantenemos la que ya tenía (si estamos editando)
+      let finalImageUrl = formData.imagen_url;
 
       // Si el usuario seleccionó una imagen nueva de su compu, la subimos a Supabase
       if (imagenFile) {
         const fileExt = imagenFile.name.split('.').pop();
         const fileName = `${Date.now()}-${Math.random().toString(36).substring(2, 15)}.${fileExt}`;
-        const filePath = `tours/${fileName}`;
+        const folder = activeTab === 'tours' ? 'tours' : 'transfers';
+        const filePath = `${folder}/${fileName}`;
 
-        // Subimos el archivo al bucket "tours-images"
         const { data: uploadData, error: uploadError } = await supabase.storage
           .from('tours-images')
           .upload(filePath, imagenFile);
-
         if (uploadError) throw uploadError;
 
-        // Pedimos la URL pública de esa imagen que acabamos de subir
         const { data: publicUrlData } = supabase.storage
           .from('tours-images')
           .getPublicUrl(filePath);
-
         finalImageUrl = publicUrlData.publicUrl;
       }
 
-      // Preparamos los datos finales a guardar
-      const dataToSave = { ...formData, imagen_url: finalImageUrl };
+      // Preparamos los datos base compartidos por ambos
+      const baseDataToSave = {
+        titulo_es: formData.titulo_es,
+        titulo_en: formData.titulo_en,
+        precio: formData.precio,
+        precio_ars: formData.precio_ars,
+        imagen_url: finalImageUrl,
+        descripcion_es: formData.descripcion_es,
+        descripcion_en: formData.descripcion_en,
+        activo: formData.activo
+      };
+
+      // Si es un tour, agregamos los campos extra. Si es transfer, los omitimos.
+      const dataToSave = activeTab === 'tours' 
+        ? { ...baseDataToSave, duracion: formData.duracion, categoria_es: formData.categoria_es, categoria_en: formData.categoria_en }
+        : baseDataToSave;
+
+      const tabla = activeTab === 'tours' ? 'tours' : 'transfers';
+      const listaActual = activeTab === 'tours' ? tours : transfers;
 
       if (editingId) {
-        const { error } = await supabase.from('tours').update(dataToSave).eq('id', editingId);
+        const { error } = await supabase.from(tabla).update(dataToSave).eq('id', editingId);
         if (error) throw error;
-        showToast("Tour actualizado con éxito");
+        showToast(`${activeTab === 'tours' ? 'Tour' : 'Transfer'} actualizado con éxito`);
       } else {
-        const newOrden = tours.length;
-        const { error } = await supabase.from('tours').insert([{ ...dataToSave, orden: newOrden }]);
+        const newOrden = listaActual.length;
+        const { error } = await supabase.from(tabla).insert([{ ...dataToSave, orden: newOrden }]);
         if (error) throw error;
-        showToast("Tour creado con éxito");
+        showToast(`${activeTab === 'tours' ? 'Tour' : 'Transfer'} creado con éxito`);
       }
 
       // Limpiamos todo después de guardar
@@ -129,57 +155,66 @@ export default function AdminPage() {
       setEditingId(null);
       fetchDashboardData();
     } catch (error) {
-      console.error(error);
-      alert("Hubo un error al guardar el tour.");
+      console.error("ERROR DE SUPABASE:", error);
+      alert("Error al guardar: " + (error.message || error.details || JSON.stringify(error)));
     }
   };
 
-  const handleEditTour = (tour) => {
+  const handleEditItem = (item) => {
     setFormData({
-      titulo_es: tour.titulo_es || '', titulo_en: tour.titulo_en || '',
-      precio: tour.precio || '', precio_ars: tour.precio_ars || '',
-      duracion: tour.duracion || '', imagen_url: tour.imagen_url || '',
-      descripcion_es: tour.descripcion_es || '', descripcion_en: tour.descripcion_en || '',
-      categoria_es: tour.categoria_es || 'Popular', categoria_en: tour.categoria_en || 'Popular',
-      activo: tour.activo !== false 
+      titulo_es: item.titulo_es || '', titulo_en: item.titulo_en || '',
+      precio: item.precio || '', precio_ars: item.precio_ars || '',
+      duracion: item.duracion || '', imagen_url: item.imagen_url || '',
+      descripcion_es: item.descripcion_es || '', descripcion_en: item.descripcion_en || '',
+      categoria_es: item.categoria_es || 'Popular', categoria_en: item.categoria_en || 'Popular',
+      activo: item.activo !== false 
     });
-    setEditingId(tour.id);
+    setEditingId(item.id);
     setImagenFile(null); 
     window.scrollTo({ top: 0, behavior: 'smooth' });
   };
 
-  const handleDeleteTour = async (id) => {
-    if (!window.confirm("¿Seguro que quieres eliminar este tour permanentemente?")) return;
+  const handleDeleteItem = async (id) => {
+    const itemName = activeTab === 'tours' ? 'tour' : 'transfer';
+    if (!window.confirm(`¿Seguro que quieres eliminar este ${itemName} permanentemente?`)) return;
     try {
-      await supabase.from('tours').delete().eq('id', id);
-      showToast("Tour eliminado");
+      const tabla = activeTab === 'tours' ? 'tours' : 'transfers';
+      await supabase.from(tabla).delete().eq('id', id);
+      showToast(`${activeTab === 'tours' ? 'Tour' : 'Transfer'} eliminado`);
       fetchDashboardData();
     } catch (error) {
-      alert("No se pudo eliminar el tour.");
+      alert(`No se pudo eliminar el ${itemName}.`);
     }
   };
 
-  const handleToggleActivo = async (tour) => {
+  const handleToggleActivo = async (item) => {
     try {
-      await supabase.from('tours').update({ activo: !tour.activo }).eq('id', tour.id);
-      showToast(tour.activo ? "Tour ocultado de la web" : "Tour activado en la web");
+      const tabla = activeTab === 'tours' ? 'tours' : 'transfers';
+      await supabase.from(tabla).update({ activo: !item.activo }).eq('id', item.id);
+      showToast(item.activo ? "Ocultado de la web" : "Activado en la web");
       fetchDashboardData();
     } catch (error) {
-      alert("Error al cambiar el estado del tour.");
+      alert("Error al cambiar el estado.");
     }
   };
 
   const handleDragEnd = async (result) => {
     if (!result.destination) return;
-    const items = Array.from(tours);
+    const items = Array.from(activeTab === 'tours' ? tours : transfers);
     const [reorderedItem] = items.splice(result.source.index, 1);
     items.splice(result.destination.index, 0, reorderedItem);
     const updatedItems = items.map((item, index) => ({ ...item, orden: index }));
-    setTours(updatedItems);
+    
+    if (activeTab === 'tours') {
+      setTours(updatedItems);
+    } else {
+      setTransfers(updatedItems);
+    }
 
     try {
-      const promises = updatedItems.map(tour =>
-        supabase.from('tours').update({ orden: tour.orden }).eq('id', tour.id)
+      const tabla = activeTab === 'tours' ? 'tours' : 'transfers';
+      const promises = updatedItems.map(item =>
+        supabase.from(tabla).update({ orden: item.orden }).eq('id', item.id)
       );
       await Promise.all(promises);
       showToast("Orden guardado");
@@ -188,11 +223,16 @@ export default function AdminPage() {
     }
   };
 
-  /* ================= MÉTODOS DEL CALENDARIO ================= */
+  /* ================= MÉTODOS DEL CALENDARIO Y RESERVAS ================= */
   const handleActualizarEstadoReserva = async (id, nuevoEstado) => {
     try {
-      setReservas(reservas.map(r => r.id === id ? { ...r, estado: nuevoEstado } : r));
-      await supabase.from('reservas').update({ estado: nuevoEstado }).eq('id', id);
+      if (activeTab === 'tours') {
+        setReservas(reservas.map(r => r.id === id ? { ...r, estado: nuevoEstado } : r));
+        await supabase.from('reservas').update({ estado: nuevoEstado }).eq('id', id);
+      } else {
+        setReservasTransfers(reservasTransfers.map(r => r.id === id ? { ...r, estado: nuevoEstado } : r));
+        await supabase.from('reservas_transfer').update({ estado: nuevoEstado }).eq('id', id);
+      }
       showToast("Estado de reserva actualizado");
     } catch (error) {
       alert("Error al actualizar reserva");
@@ -231,8 +271,10 @@ export default function AdminPage() {
     const fechaStr = `${year}-${month}-${day}`;
 
     if (fechasBloqueadas.some(fb => fb.fecha === fechaStr)) return "dia-bloqueado-admin";
-
-    const reservasDelDia = reservas.filter(r => r.fecha_tour === fechaStr);
+    
+    const currentReservas = activeTab === 'tours' ? reservas : reservasTransfers;
+    const reservasDelDia = currentReservas.filter(r => (activeTab === 'tours' ? r.fecha_tour : r.fecha_transfer) === fechaStr);
+    
     if (reservasDelDia.length === 0) return "";
     
     const tienePendiente = reservasDelDia.some(r => r.estado?.includes('pendiente'));
@@ -249,10 +291,12 @@ export default function AdminPage() {
     const month = String(fechaCalendarioGrande.getMonth() + 1).padStart(2, '0');
     const day = String(fechaCalendarioGrande.getDate()).padStart(2, '0');
     const fechaStr = `${year}-${month}-${day}`;
+    
+    const currentReservas = activeTab === 'tours' ? reservas : reservasTransfers;
 
     return { 
       fechaStr, 
-      reservasDelDia: reservas.filter(r => r.fecha_tour === fechaStr), 
+      reservasDelDia: currentReservas.filter(r => (activeTab === 'tours' ? r.fecha_tour : r.fecha_transfer) === fechaStr), 
       bloqueoDelDia: fechasBloqueadas.find(f => f.fecha === fechaStr) 
     };
   };
@@ -275,6 +319,7 @@ export default function AdminPage() {
   };
 
   const infoDia = obtenerInfoDiaSeleccionado();
+  const proximasReservas = activeTab === 'tours' ? reservas : reservasTransfers;
 
   if (loading) return <div style={{ textAlign: 'center', padding: '50px' }}>Cargando panel de administración...</div>;
 
@@ -287,10 +332,25 @@ export default function AdminPage() {
         </button>
       </div>
 
+      {/* SELECTOR DE PESTAÑAS */}
+      <div style={{ display: 'flex', gap: '15px', marginBottom: '25px', borderBottom: '2px solid #eee', paddingBottom: '15px' }}>
+        <button 
+          onClick={() => { setActiveTab('tours'); setEditingId(null); }} 
+          style={{ ...styles.btnPrimary, background: activeTab === 'tours' ? '#1a3a5c' : '#ccc', padding: '12px 24px', fontSize: '1.1rem' }}>
+          🗺️ Gestionar Tours
+        </button>
+        <button 
+          onClick={() => { setActiveTab('transfers'); setEditingId(null); }} 
+          style={{ ...styles.btnPrimary, background: activeTab === 'transfers' ? '#1a3a5c' : '#ccc', padding: '12px 24px', fontSize: '1.1rem' }}>
+          🚗 Gestionar Transfers
+        </button>
+      </div>
+
       <div style={styles.grid}>
+      
         <div>
           <div style={styles.card}>
-            <h2>{editingId ? 'Editar Tour' : 'Crear Nuevo Tour'}</h2>
+            <h2>{editingId ? `Editar ${activeTab === 'tours' ? 'Tour' : 'Transfer'}` : `Crear Nuevo ${activeTab === 'tours' ? 'Tour' : 'Transfer'}`}</h2>
             <form onSubmit={handleSubmitTour}>
               <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '10px' }}>
                 <input style={styles.input} name="titulo_es" placeholder="Título (ES)" value={formData.titulo_es} onChange={handleInputChange} required />
@@ -299,10 +359,13 @@ export default function AdminPage() {
                 <input style={styles.input} type="number" name="precio_ars" placeholder="Precio ARS" value={formData.precio_ars} onChange={handleInputChange} required />
               </div>
       
-              <input style={styles.input} name="duracion" placeholder="Duración (Ej: 3 hs)" value={formData.duracion} onChange={handleInputChange} />
+              {activeTab === 'tours' && (
+                <input style={styles.input} name="duracion" placeholder="Duración (Ej: 3 hs)" value={formData.duracion} onChange={handleInputChange} />
+              )}
+              
               <div style={{ marginBottom: '10px' }}>
                 <label style={{ display: 'block', fontSize: '0.9rem', marginBottom: '5px', fontWeight: 'bold' }}>
-                  Imagen del Tour
+                  Imagen del {activeTab === 'tours' ? 'Tour' : 'Transfer'}
                 </label>
                 <input 
                   type="file" 
@@ -310,6 +373,7 @@ export default function AdminPage() {
                   style={styles.input} 
                   onChange={handleImageChange} 
                 />
+  
                 {/* Si estamos editando y ya hay una foto cargada, le avisamos */}
                 {editingId && formData.imagen_url && !imagenFile && (
                   <p style={{ fontSize: '0.8rem', color: '#666', margin: '0' }}>
@@ -322,11 +386,11 @@ export default function AdminPage() {
             
               <label style={{ display: 'flex', alignItems: 'center', gap: '10px', marginBottom: '15px', cursor: 'pointer' }}>
                 <input type="checkbox" name="activo" checked={formData.activo} onChange={handleInputChange} />
-                <strong>Tour Activo (Visible en la web)</strong>
+                <strong>{activeTab === 'tours' ? 'Tour' : 'Transfer'} Activo (Visible en la web)</strong>
               </label>
 
               <button type="submit" style={{...styles.btnPrimary, width: '100%'}}>
-                {editingId ? 'Guardar Cambios' : 'Crear Tour'}
+                {editingId ? 'Guardar Cambios' : `Crear ${activeTab === 'tours' ? 'Tour' : 'Transfer'}`}
               </button>
               {editingId && (
                 <button type="button" onClick={() => setEditingId(null)} style={{...styles.btnPrimary, background: '#7f8c8d', width: '100%', marginTop: '10px'}}>
@@ -336,13 +400,13 @@ export default function AdminPage() {
             </form>
           </div>
 
-          <h2 style={{ marginTop: '30px', marginBottom: '15px' }}>Tours (Arrastrar para ordenar)</h2>
+          <h2 style={{ marginTop: '30px', marginBottom: '15px' }}>{activeTab === 'tours' ? 'Tours' : 'Transfers'} (Arrastrar para ordenar)</h2>
           <DragDropContext onDragEnd={handleDragEnd}>
-            <Droppable droppableId="tours-list">
+            <Droppable droppableId="items-list">
               {(provided) => (
                 <ul {...provided.droppableProps} ref={provided.innerRef} style={{ padding: 0 }}>
-                  {tours.map((tour, index) => (
-                    <Draggable key={tour.id} draggableId={tour.id.toString()} index={index}>
+                  {(activeTab === 'tours' ? tours : transfers).map((item, index) => (
+                    <Draggable key={item.id} draggableId={item.id.toString()} index={index}>
                       {(provided, snapshot) => (
                         <li
                           ref={provided.innerRef}
@@ -350,22 +414,22 @@ export default function AdminPage() {
                           style={{
                             ...provided.draggableProps.style,
                             ...styles.listItem,
-                            opacity: tour.activo ? 1 : 0.6,
+                            opacity: item.activo ? 1 : 0.6,
                             boxShadow: snapshot.isDragging ? '0 5px 15px rgba(0,0,0,0.1)' : 'none'
                           }}
                         >
                           <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
                             <div {...provided.dragHandleProps} style={{ cursor: 'grab', color: '#aaa' }}>☰</div>
                             <div>
-                              <strong>{tour.titulo_es}</strong> {!tour.activo && <span style={{color: 'red', fontSize: '0.8rem'}}>(Inactivo)</span>}
+                              <strong>{item.titulo_es}</strong> {!item.activo && <span style={{color: 'red', fontSize: '0.8rem'}}>(Inactivo)</span>}
                             </div>
                           </div>
                           <div style={{ display: 'flex', gap: '5px' }}>
-                            <button onClick={() => handleToggleActivo(tour)} style={styles.btnWarning} title={tour.activo ? "Desactivar" : "Activar"}>
-                              {tour.activo ? '👁️' : '🙈'}
+                            <button onClick={() => handleToggleActivo(item)} style={styles.btnWarning} title={item.activo ? "Desactivar" : "Activar"}>
+                              {item.activo ? '👁️' : '🙈'}
                             </button>
-                            <button onClick={() => handleEditTour(tour)} style={{...styles.btnWarning, background: '#3498db'}}>✎</button>
-                            <button onClick={() => handleDeleteTour(tour.id)} style={styles.btnDanger}>✕</button>
+                            <button onClick={() => handleEditItem(item)} style={{...styles.btnWarning, background: '#3498db'}}>✎</button>
+                            <button onClick={() => handleDeleteItem(item.id)} style={styles.btnDanger}>✕</button>
                           </div>
                         </li>
                       )}
@@ -380,16 +444,19 @@ export default function AdminPage() {
 
         <div>
           <div style={{ ...styles.card, marginBottom: '30px' }}>
-            <h2>Próximas Reservas Generales</h2>
-            {reservas.length === 0 ? <p>No hay reservas futuras.</p> : (
+            <h2>Próximas Reservas Generales ({activeTab === 'tours' ? 'Tours' : 'Transfers'})</h2>
+            {proximasReservas.length === 0 ? <p>No hay reservas futuras.</p> : (
               <ul style={{ padding: 0, maxHeight: '300px', overflowY: 'auto' }}>
-                {reservas.map(res => {
-                  const horarioTexto = res.horario === 'morning' ? 'Mañana (9:00)' : res.horario === 'afternoon' ? 'Tarde (14:00)' : 'Noche (19:00)';
+                {proximasReservas.map(res => {
+                  const titulo = activeTab === 'tours' ? res.tours?.titulo_es : res.transfers?.titulo_es;
+                  const fecha = activeTab === 'tours' ? res.fecha_tour : res.fecha_transfer;
+                  const horarioTexto = res.horario === 'morning' ? 'Mañana (9:00)' : res.horario === 'afternoon' ? 'Tarde (14:00)' : res.horario === 'evening' ? 'Noche (19:00)' : res.horario;
+                  
                   return (
                     <li key={res.id} style={styles.listItem}>
                       <div>
-                        <strong>{res.fecha_tour} - {horarioTexto}</strong><br/>
-                        <span style={{ fontSize: '0.9rem' }}>{res.tours?.titulo_es} ({res.pasajeros} pax)</span><br/>
+                        <strong>{fecha} - {horarioTexto}</strong><br/>
+                        <span style={{ fontSize: '0.9rem' }}>{titulo} ({res.pasajeros} pax)</span><br/>
                         <span style={{ fontSize: '0.8rem', color: '#666' }}>{res.nombre_cliente}</span>
                       </div>
                       
@@ -422,9 +489,8 @@ export default function AdminPage() {
           </div>
 
           <div style={styles.card}>
-            <h2>Disponibilidad General</h2>
+            <h2>Disponibilidad General ({activeTab === 'tours' ? 'Tours' : 'Transfers'})</h2>
             
-            {/* CORRECCIÓN DE LA GRILLA Y TAMAÑO AQUÍ */}
             <div style={{ display: 'grid', gridTemplateColumns: 'auto 1fr', gap: '20px', marginTop: '15px', alignItems: 'start' }}>
               
               <div style={{ paddingBottom: '10px' }} className="calendario-admin-grande">
@@ -461,17 +527,29 @@ export default function AdminPage() {
                       <li key={r.id} style={{ padding: '15px', border: '1px solid #eee', borderRadius: '8px', marginBottom: '12px', background: '#fafafa' }}>
                         
                         <p style={{ margin: '0 0 10px 0', color: '#1a3a5c', fontWeight: 'bold', fontSize: '1rem' }}>
-                          {r.tours?.titulo_es}
+                          {activeTab === 'tours' ? r.tours?.titulo_es : r.transfers?.titulo_es}
                         </p>
                         
                         <div style={{ display: 'grid', gridTemplateColumns: '1fr', gap: '6px', fontSize: '0.9rem', color: '#444' }}>
                           <span>👤 <strong>Cliente:</strong> {r.nombre_cliente}</span>
-                          {/* NUEVOS CAMPOS AQUÍ */}
                           <span>📱 <strong>Teléfono:</strong> {r.telefono || 'No especificado'}</span>
                           <span>📝 <strong>Notas:</strong> {r.notas || 'Sin notas'}</span>
-                          <span>👥 <strong>Pasajeros:</strong> {r.pasajeros}</span>
-                          <span>🕒 <strong>Horario:</strong> {r.horario === 'morning' ? 'Mañana' : r.horario === 'afternoon' ? 'Tarde' : 'Noche'}</span>
-                          <span>🗣️ <strong>Idioma:</strong> {r.idioma === 'en' ? 'Inglés' : r.idioma === 'both' ? 'Bilingüe' : 'Español'}</span>
+                          
+                          {activeTab === 'tours' ? (
+                            <>
+                              <span>📍 <strong>Lugar de Recogida:</strong> {r.recogida || 'No especificado'}</span>
+                              <span>👥 <strong>Pasajeros:</strong> {r.pasajeros} (Adultos: {r.adultos || 0}, Niños: {r.ninos || 0})</span>
+                              <span>🕒 <strong>Horario:</strong> {r.horario === 'morning' ? 'Mañana' : r.horario === 'afternoon' ? 'Tarde' : 'Noche'}</span>
+                              <span>🗣️ <strong>Idioma:</strong> {r.idioma === 'en' ? 'Inglés' : r.idioma === 'both' ? 'Bilingüe' : 'Español'}</span>
+                            </>
+                          ) : (
+                            <>
+                              <span>📍 <strong>Sentido:</strong> {r.sentido || 'No especificado'}</span>
+                              <span>🏠 <strong>Dirección:</strong> {r.direccion || 'No especificado'}</span>
+                              <span>👥 <strong>Pasajeros:</strong> {r.pasajeros}</span>
+                              <span>🕒 <strong>Horario:</strong> {r.horario || 'No especificado'}</span>
+                            </>
+                          )}
                         </div>
                         
                         <div style={{ marginTop: '12px', paddingTop: '12px', borderTop: '1px solid #ddd', display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>

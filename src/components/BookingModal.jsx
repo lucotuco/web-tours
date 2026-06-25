@@ -9,20 +9,22 @@ import { useLanguage } from '../context/LanguageContext';
 export default function BookingModal({ tour, onClose }) {
   const { lang, t } = useLanguage();
 
-  const [formData, setFormData] = useState({ 
-    nombre: '', 
-    email: '', 
-    telefono: '', 
-    pasajeros: 1, 
-    horario: 'morning', 
-    idioma: 'es', 
-    notas: '' 
+  const [formData, setFormData] = useState({
+    nombre: '',
+    email: '',
+    telefono: '',
+    adultos: 1,
+    ninos: 0,
+    horario: 'morning',
+    idioma: 'es',
+    notas: '',
+    recogida: ''
   });
   const [fechaSeleccionada, setFechaSeleccionada] = useState(null);
-  
+
   const [fechasBloqueadas, setFechasBloqueadas] = useState([]);
   const [reservasPorDia, setReservasPorDia] = useState({});
-  const [todasLasReservas, setTodasLasReservas] = useState([]); 
+  const [todasLasReservas, setTodasLasReservas] = useState([]);
   const [isProcessing, setIsProcessing] = useState(false);
 
   // EFECTO PARA BLOQUEAR EL SCROLL DEL NAVEGADOR
@@ -54,7 +56,7 @@ export default function BookingModal({ tour, onClose }) {
     const month = String(fechaSeleccionada.getMonth() + 1).padStart(2, '0');
     const day = String(fechaSeleccionada.getDate()).padStart(2, '0');
     const fechaStr = `${year}-${month}-${day}`;
-    
+
     return todasLasReservas
       .filter(r => r.fecha_tour === fechaStr)
       .map(r => r.horario);
@@ -68,14 +70,14 @@ export default function BookingModal({ tour, onClose }) {
       const month = String(fechaSeleccionada.getMonth() + 1).padStart(2, '0');
       const day = String(fechaSeleccionada.getDate()).padStart(2, '0');
       const fechaStr = `${year}-${month}-${day}`;
-      
+
       const ocupados = todasLasReservas
         .filter(r => r.fecha_tour === fechaStr)
         .map(r => r.horario);
-        
+
       const opciones = ['morning', 'afternoon', 'evening'];
       const primeroLibre = opciones.find(opt => !ocupados.includes(opt));
-      
+
       if (primeroLibre && ocupados.includes(formData.horario)) {
         setFormData(prev => ({ ...prev, horario: primeroLibre }));
       }
@@ -92,12 +94,13 @@ export default function BookingModal({ tour, onClose }) {
 
     if (date < hoy) return false;
     if (fechasBloqueadas.includes(fechaStr)) return false;
-    if (reservasPorDia[fechaStr] >= 3) return false; 
+    if (reservasPorDia[fechaStr] >= 3) return false;
     return true;
   };
 
-  const montoTotal = tour.precio * formData.pasajeros;
-  const montoTotalArs = (tour.precio_ars || 0) * formData.pasajeros;
+  const totalPasajeros = Number(formData.adultos) + Number(formData.ninos);
+  const montoTotal = tour.precio * totalPasajeros;
+  const montoTotalArs = (tour.precio_ars || 0) * totalPasajeros;
 
   const guardarReservaEnBaseDeDatos = async (estado) => {
     const year = fechaSeleccionada.getFullYear();
@@ -111,16 +114,19 @@ export default function BookingModal({ tour, onClose }) {
       email_cliente: formData.email,
       telefono: formData.telefono,
       fecha_tour: fechaFormateada,
-      pasajeros: formData.pasajeros,
+      pasajeros: totalPasajeros, // Mantenemos el total aquí
+      adultos: formData.adultos, // Nueva columna
+      ninos: formData.ninos,
       horario: formData.horario,
       idioma: formData.idioma,
       notas: formData.notas,
+      recogida: formData.recogida,
       estado: estado
     }]).select().single();
 
     if (error) {
       alert("Error guardando reserva: " + error.message);
-      return null; 
+      return null;
     }
     return data.id;
   };
@@ -129,8 +135,8 @@ export default function BookingModal({ tour, onClose }) {
     setIsProcessing(true);
     const reservaId = await guardarReservaEnBaseDeDatos('pendiente (Mercado Pago)');
     if (!reservaId) {
-       setIsProcessing(false);
-       return;
+      setIsProcessing(false);
+      return;
     }
     try {
       const res = await fetch('/api/mercadopago', {
@@ -144,7 +150,7 @@ export default function BookingModal({ tour, onClose }) {
       });
       const data = await res.json();
       if (data.url) {
-        window.location.href = data.url; 
+        window.location.href = data.url;
       } else {
         alert(t("Hubo un error al generar el link de pago.", "There was an error generating the payment link."));
         setIsProcessing(false);
@@ -161,53 +167,78 @@ export default function BookingModal({ tour, onClose }) {
     <PayPalScriptProvider options={{ "client-id": process.env.NEXT_PUBLIC_PAYPAL_CLIENT_ID, currency: "USD", intent: "capture" }}>
       {/* SE AGREGA onClick={onClose} AL FONDO OSCURO PARA CERRAR EL MODAL */}
       <div className="modal-overlay active" style={{ display: 'flex', zIndex: 9999 }} onClick={onClose}>
-        
+
         {/* SE AGREGA onClick={(e) => e.stopPropagation()} PARA QUE EL CLICK ADENTRO NO LO CIERRE */}
         <div className="modal" onClick={(e) => e.stopPropagation()}>
           <div className="modal-header">
             <h3>{t('Reservar:', 'Book:')} {lang === 'es' ? tour.titulo_es : tour.titulo_en}</h3>
             <button className="modal-close" onClick={onClose} disabled={isProcessing}>&times;</button>
           </div>
-          
+
           <div className="modal-body">
             <div style={{ opacity: isProcessing ? 0.5 : 1, pointerEvents: isProcessing ? 'none' : 'auto' }}>
               <div className="form-group">
                 <label>{t('Nombre Completo', 'Full Name')}</label>
-                <input type="text" value={formData.nombre} onChange={e => setFormData({...formData, nombre: e.target.value})} placeholder={t("Tu nombre y apellido", "Your full name")} />
+                <input type="text" value={formData.nombre} onChange={e => setFormData({ ...formData, nombre: e.target.value })} placeholder={t("Tu nombre y apellido", "Your full name")} />
               </div>
-              
+
               <div className="form-group">
                 <label>Email</label>
-                <input type="email" value={formData.email} onChange={e => setFormData({...formData, email: e.target.value})} placeholder="tu@email.com" />
+                <input type="email" value={formData.email} onChange={e => setFormData({ ...formData, email: e.target.value })} placeholder="tu@email.com" />
               </div>
 
               <div className="form-group">
                 <label>{t('Teléfono', 'Phone Number')}</label>
-                <input type="tel" value={formData.telefono} onChange={e => setFormData({...formData, telefono: e.target.value})} placeholder="+1 234 567 8900" />
+                <input type="tel" value={formData.telefono} onChange={e => setFormData({ ...formData, telefono: e.target.value })} placeholder="+1 234 567 8900" />
               </div>
-              
+              <div className="form-group">
+                <label>{t('Lugar de Recogida (Hotel, Airbnb, etc.)', 'Pick-up Location (Hotel, Airbnb, etc.)')}</label>
+                <input
+                  type="text"
+                  value={formData.recogida}
+                  onChange={e => setFormData({ ...formData, recogida: e.target.value })}
+                  placeholder={t("Dirección o nombre del alojamiento", "Address or accommodation name")}
+                />
+              </div>
+
               <div className="form-row" style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '15px' }}>
                 <div className="form-group">
                   <label>{t('Fecha del Tour', 'Tour Date')}</label>
-                  <DatePicker 
-                    selected={fechaSeleccionada} 
-                    onChange={date => setFechaSeleccionada(date)} 
+                  <DatePicker
+                    selected={fechaSeleccionada}
+                    onChange={date => setFechaSeleccionada(date)}
                     filterDate={esDiaDisponible}
                     placeholderText={t("Elegí un día", "Choose a day")}
                     className="date-picker-input"
                     dateFormat="dd/MM/yyyy"
                   />
                 </div>
-                <div className="form-group">
-                  <label>{t('Pasajeros', 'Passengers')}</label>
-                  <input type="number" min="1" value={formData.pasajeros} onChange={e => setFormData({...formData, pasajeros: e.target.value})} />
+                <div className="form-row" style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '15px' }}>
+                  <div className="form-group">
+                    <label>{t('Adultos', 'Adults')}</label>
+                    <input
+                      type="number"
+                      min="1"
+                      value={formData.adultos}
+                      onChange={e => setFormData({ ...formData, adultos: Math.max(1, parseInt(e.target.value) || 1) })}
+                    />
+                  </div>
+                  <div className="form-group">
+                    <label>{t('Niños', 'Children')}</label>
+                    <input
+                      type="number"
+                      min="0"
+                      value={formData.ninos}
+                      onChange={e => setFormData({ ...formData, ninos: Math.max(0, parseInt(e.target.value) || 0) })}
+                    />
+                  </div>
                 </div>
               </div>
 
               <div className="form-row" style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '15px' }}>
                 <div className="form-group">
                   <label>{t('Horario Preferido', 'Preferred Time')}</label>
-                  <select value={formData.horario} onChange={e => setFormData({...formData, horario: e.target.value})}>
+                  <select value={formData.horario} onChange={e => setFormData({ ...formData, horario: e.target.value })}>
                     <option value="morning" disabled={horariosOcupados.includes('morning')}>{t('Mañana (9:00)', 'Morning (9:00)')}</option>
                     <option value="afternoon" disabled={horariosOcupados.includes('afternoon')}>{t('Tarde (14:00)', 'Afternoon (14:00)')}</option>
                     <option value="evening" disabled={horariosOcupados.includes('evening')}>{t('Noche (19:00)', 'Evening (19:00)')}</option>
@@ -215,7 +246,7 @@ export default function BookingModal({ tour, onClose }) {
                 </div>
                 <div className="form-group">
                   <label>{t('Idioma del Guía', 'Guide Language')}</label>
-                  <select value={formData.idioma} onChange={e => setFormData({...formData, idioma: e.target.value})}>
+                  <select value={formData.idioma} onChange={e => setFormData({ ...formData, idioma: e.target.value })}>
                     <option value="es">{t('Español', 'Spanish')}</option>
                     <option value="en">{t('Inglés', 'English')}</option>
                     <option value="both">{t('Ambos (Español/Inglés)', 'Both (Spanish/English)')}</option>
@@ -225,9 +256,9 @@ export default function BookingModal({ tour, onClose }) {
 
               <div className="form-group">
                 <label>{t('Notas Adicionales', 'Additional Notes')}</label>
-                <textarea rows="3" placeholder={t("Requisitos especiales, observaciones, etc.", "Special requirements, observations, etc.")} value={formData.notas} onChange={e => setFormData({...formData, notas: e.target.value})} style={{ width: '100%', padding: '12px 16px', border: '2px solid #e8e8e8', borderRadius: '12px', fontSize: '0.95rem', fontFamily: 'Inter, sans-serif', background: 'var(--bg-light)' }}></textarea>
+                <textarea rows="3" placeholder={t("Requisitos especiales, observaciones, etc.", "Special requirements, observations, etc.")} value={formData.notas} onChange={e => setFormData({ ...formData, notas: e.target.value })} style={{ width: '100%', padding: '12px 16px', border: '2px solid #e8e8e8', borderRadius: '12px', fontSize: '0.95rem', fontFamily: 'Inter, sans-serif', background: 'var(--bg-light)' }}></textarea>
               </div>
-              
+
               <div className="booking-summary" style={{ margin: '15px 0', padding: '15px', background: '#f9f9f9', borderRadius: '8px' }}>
                 <strong>Total: USD {montoTotal} {tour.precio_ars > 0 ? `| ARS ${montoTotalArs}` : ''}</strong>
               </div>
@@ -239,7 +270,7 @@ export default function BookingModal({ tour, onClose }) {
               </p>
             ) : (
               <div style={{ marginTop: '15px', position: 'relative' }}>
-                
+
                 {isProcessing && (
                   <div style={{ position: 'absolute', top: 0, left: 0, right: 0, bottom: 0, background: 'rgba(255,255,255,0.9)', zIndex: 10, display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', borderRadius: '8px' }}>
                     <div className="spinner" style={{ width: '40px', height: '40px', borderWidth: '4px', marginBottom: '10px' }}></div>
@@ -251,9 +282,9 @@ export default function BookingModal({ tour, onClose }) {
 
                 <div style={{ display: 'flex', flexDirection: 'column', gap: '10px', opacity: isProcessing ? 0 : 1, pointerEvents: isProcessing ? 'none' : 'auto' }}>
                   {tour.precio_ars > 0 && (
-                    <button 
-                      type="button" 
-                      onClick={pagarConMercadoPago} 
+                    <button
+                      type="button"
+                      onClick={pagarConMercadoPago}
                       style={{ background: '#009ee3', color: 'white', padding: '12px', width: '100%', border: 'none', borderRadius: '4px', cursor: 'pointer', fontWeight: 'bold', fontSize: '1rem' }}
                     >
                       {t('Pagar con Mercado Pago (ARS ', 'Pay with Mercado Pago (ARS ')} {montoTotalArs})
@@ -266,7 +297,7 @@ export default function BookingModal({ tour, onClose }) {
                     </div>
                   )}
 
-                  <PayPalButtons 
+                  <PayPalButtons
                     style={{ layout: "vertical", color: "gold", shape: "rect", height: 40 }}
                     createOrder={(data, actions) => {
                       return actions.order.create({
@@ -281,17 +312,17 @@ export default function BookingModal({ tour, onClose }) {
                       try {
                         await actions.order.capture();
                         const guardadoOk = await guardarReservaEnBaseDeDatos('confirmado y pagado (PayPal)');
-                        
+
                         if (guardadoOk) {
                           await fetch('/api/email', {
                             method: 'POST',
                             headers: { 'Content-Type': 'application/json' },
                             body: JSON.stringify({
                               nombre: formData.nombre,
-                              email: formData.email, 
+                              email: formData.email,
                               tourTitulo: lang === 'es' ? tour.titulo_es : tour.titulo_en,
                               fecha: fechaSeleccionada.toLocaleDateString('es-AR'),
-                              pasajeros: formData.pasajeros,
+                              pasajeros: `${totalPasajeros} (Adultos: ${formData.adultos}, Niños: ${formData.ninos})`,
                               idioma: lang
                             })
                           });
