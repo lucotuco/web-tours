@@ -31,7 +31,7 @@ export default function BookingModal({ tour, onClose }) {
   useEffect(() => {
     document.body.style.overflow = 'hidden';
     return () => {
-      document.body.style.overflow = 'auto'; // Restaura el scroll al cerrarse
+      document.body.style.overflow = '';
     };
   }, []);
 
@@ -145,7 +145,7 @@ export default function BookingModal({ tour, onClose }) {
         body: JSON.stringify({
           titulo: `Reserva: ${lang === 'es' ? tour.titulo_es : tour.titulo_en}`,
           precio_total: montoTotalArs,
-          reserva_id: reservaId
+          reserva_id: `TOUR-${reservaId}`
         })
       });
       const data = await res.json();
@@ -200,8 +200,7 @@ export default function BookingModal({ tour, onClose }) {
                   placeholder={t("Dirección o nombre del alojamiento", "Address or accommodation name")}
                 />
               </div>
-
-              <div className="form-row" style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '15px' }}>
+<div className="form-row">
                 <div className="form-group">
                   <label>{t('Fecha del Tour', 'Tour Date')}</label>
                   <DatePicker
@@ -213,7 +212,8 @@ export default function BookingModal({ tour, onClose }) {
                     dateFormat="dd/MM/yyyy"
                   />
                 </div>
-                <div className="form-row" style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '15px' }}>
+                
+                <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '1rem' }}>
                   <div className="form-group">
                     <label>{t('Adultos', 'Adults')}</label>
                     <input
@@ -235,7 +235,8 @@ export default function BookingModal({ tour, onClose }) {
                 </div>
               </div>
 
-              <div className="form-row" style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '15px' }}>
+              {/* FILA 2: Horario e Idioma */}
+              <div className="form-row">
                 <div className="form-group">
                   <label>{t('Horario Preferido', 'Preferred Time')}</label>
                   <select value={formData.horario} onChange={e => setFormData({ ...formData, horario: e.target.value })}>

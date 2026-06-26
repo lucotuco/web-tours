@@ -53,7 +53,9 @@ body {
   justify-content: space-between;
   align-items: center;
 }
-.react-datepicker-wrapper,
+.react-datepicker-wrapper{
+  width: 100%;
+}
 /* Estilos personalizados para el Calendario Grande del Admin */
 .calendario-admin-grande .react-datepicker {
   font-family: inherit;
@@ -1093,9 +1095,6 @@ section {
   color: var(--white);
 }
 
-.modal-body {
-  padding: 2rem;
-}
 
 .modal-tour-info {
   display: flex;
@@ -1485,11 +1484,11 @@ section {
   max-height: 90vh; /* Evita que el modal sea más alto que el 90% de la pantalla */
 }
 
-/* 2. El cuerpo toma el espacio sobrante y hace scroll interno si es necesario */
 .modal-body {
   overflow-y: auto;
-  flex: 1; /* Ocupa el espacio restante que deja el header */
-  padding-right: 5px; /* Un pequeño margen opcional para que el texto no se pegue a la barra */
+  flex: 1;
+  padding: 2rem;
+  padding-right: calc(2rem - 12px); 
 }
 
 /* 3. Personalización de la barra flotante (WebKit: Chrome, Safari, Edge) */

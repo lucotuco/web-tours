@@ -1,5 +1,6 @@
 "use client";
 import React from 'react';
+import Image from 'next/image';
 import { useLanguage } from '../context/LanguageContext';
 
 export default function Footer() {
@@ -9,9 +10,15 @@ export default function Footer() {
     <footer className="footer">
       <div className="footer-grid">
         <div className="footer-brand">
-          <a href="#" className="nav-logo" style={{ marginBottom: '0.5rem' }}>
-            <div className="nav-logo-icon">PST</div>
-            <div className="nav-logo-text">Premier <span>Sur</span> Tours</div>
+          <a href="#" className="nav-logo">
+            <Image
+              src="/logoPremierSurTours.png"
+              alt="Premier Sur Tours"
+              width={300}
+              height={150}
+              style={{ objectFit: 'contain' }}
+              priority
+            />
           </a>
           <p>
             {t(
@@ -20,7 +27,7 @@ export default function Footer() {
             )}
           </p>
         </div>
-        
+
         <div>
           <h4>{t('Tours', 'Tours')}</h4>
           <ul className="footer-links">
@@ -32,7 +39,7 @@ export default function Footer() {
             <li><a href="#tours">{t('Delta del Río de la Plata', 'Rio de la Plata Delta')}</a></li>
           </ul>
         </div>
-        
+
         <div>
           <h4>{t('Empresa', 'Company')}</h4>
           <ul className="footer-links">
@@ -43,7 +50,7 @@ export default function Footer() {
             <li><a href="#">{t('FAQ', 'FAQ')}</a></li>
           </ul>
         </div>
-        
+
         <div>
           <h4>{t('Legal', 'Legal')}</h4>
           <ul className="footer-links">
@@ -54,7 +61,7 @@ export default function Footer() {
           </ul>
         </div>
       </div>
-      
+
       <div className="footer-bottom">
         <span>© 2026 Premier Sur Tours. {t('Todos los derechos reservados.', 'All rights reserved.')}</span>
         <span>{t('Hecho con ❤️ en Buenos Aires', 'Made with ❤️ in Buenos Aires')}</span>

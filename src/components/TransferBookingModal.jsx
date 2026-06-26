@@ -44,7 +44,7 @@ export default function TransferBookingModal({ transfer, onClose }) {
       setReservasPorDia(conteo);
     }
     traerDisponibilidad();
-    return () => { document.body.style.overflow = 'auto'; };
+    return () => { document.body.style.overflow = ''; };
   }, []);
 
   const esDiaDisponible = (date) => {
@@ -104,7 +104,7 @@ export default function TransferBookingModal({ transfer, onClose }) {
         body: JSON.stringify({
           titulo: `Transfer: ${lang === 'es' ? transfer.titulo_es : transfer.titulo_en}`,
           precio_total: montoTotalArs,
-          reserva_id: reservaId // Nota: el Webhook actualizará reservas_transfer si modificás tu API MP, pero por ahora registrará el pago ok.
+          reserva_id: `TRANSFER-${reservaId}`
         })
       });
       const data = await res.json();
